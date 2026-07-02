@@ -77,6 +77,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 var album = "Local Album"
                 var durationMs = 0L
                 var genre = "Local"
+                var coverUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop"
                 
                 try {
                     retriever.setDataSource(context, uri)
@@ -86,6 +87,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
                     durationMs = durationStr?.toLongOrNull() ?: 0L
                     genre = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_GENRE) ?: "Local"
+                    
+                    // Extract embedded picture if available
+                    val embeddedPicture = retriever.embeddedPicture
+                    if (embeddedPicture != null) {
+                        val coverFile = java.io.File(context.filesDir, "${id}_cover.jpg")
+                        try {
+                            coverFile.outputStream().use { output ->
+                                output.write(embeddedPicture)
+                            }
+                            coverUrl = coverFile.absolutePath
+                        } catch (writeEx: Exception) {
+                            writeEx.printStackTrace()
+                        }
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 } finally {
@@ -101,9 +116,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         input.copyTo(output)
                     }
                 }
-
-                // Stylish Unsplash background cover for local files
-                val coverUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop"
 
                 val localTrack = TrackEntity(
                     id = id,
