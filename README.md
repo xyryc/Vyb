@@ -1,21 +1,109 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# SoundWave - Sleek Android Music Player
 
-# Run and deploy your AI Studio app
+SoundWave is a premium, offline-first music streaming and local playback application for Android. Built with a gorgeous, dark-themed user interface inspired by modern streaming apps, SoundWave delivers an immersive audio experience with advanced playlist management, intelligent metadata extraction, local file importing, and a robust offline database.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/fca09f33-a1c6-4688-b859-eba0390fcc64
+## 📱 Screenshots Gallery
 
-## Run Locally
+Below are the screenshots showcasing the application's beautiful visual design, cohesive color palette, and streamlined user flows:
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+| **Home Dashboard** | **Smart Playlists** | **Your Library** |
+| :---: | :---: | :---: |
+| <img src="screenshots/home.png" width="250" alt="Home Dashboard"/> | <img src="screenshots/playlist.png" width="250" alt="Playlist Detail"/> | <img src="screenshots/library.png" width="250" alt="Your Library"/> |
+| Elegant, responsive dashboard with a dynamic greeting, custom quick-access grid, and personalized recommendations. | Interactive playlist management. Add, remove, and sort tracks. Full custom play queues with beautiful card layouts. | Easily organize your musical collection. Search your local index and navigate with custom Material 3 tabs. |
 
+---
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+## ✨ Features
+
+- 🎧 **Sleek, High-Contrast UI**: Beautiful Spotify-inspired Material 3 dark mode featuring vibrant dynamic color accents (Spotify Green) and smooth motion transitions.
+- 📂 **Local MP3 File Importing**: 
+  - Effortlessly import your local `.mp3` audio files into your library.
+  - Automatically parses track title, artist, album, duration, and genre metadata using advanced `MediaMetadataRetriever` extraction.
+  - Safely clones files into the app's secure sandbox storage directory for reliable, continuous offline access.
+- 💾 **Smart Playlist Engine & Library**:
+  - Organize your tracks into custom playlists with custom titles and descriptions.
+  - Dynamic interactive play queue: play, pause, shuffle, and skip seamlessly.
+  - Fully integrated offline Favorites synchronization.
+- 🎛️ **Persistent Bottom Playback Bar**:
+  - Always-visible persistent playback strip at the bottom of the screen.
+  - Direct controls for Play/Pause, Skip Forward, and Skip Backward.
+  - Fully interactive progress bar/slider to easily scrub and seek to any position in the track.
+- 🔍 **Real-Time Universal Search**: Multi-field querying filters your entire library by track title, artist, album, or genre instantly.
+- 📦 **Offline-First Room Persistence**: Powered by SQLite & Jetpack Room, your playlists, liked status, track queue, and imported audio files persist perfectly across app restarts.
+
+---
+
+## 🛠️ Tech Stack & Architecture
+
+SoundWave represents modern Android development practices:
+
+- **Language**: 100% Kotlin with asynchronous structured concurrency via Coroutines and Flow.
+- **User Interface**: **Jetpack Compose** with Material Design 3, dynamic theming, edge-to-edge window insets, and rigorous touch-target accessibility.
+- **Architecture**: Clean Architecture conforming to the **MVVM (Model-View-ViewModel)** design pattern for pristine separation of concerns.
+- **Database Persistence**: **Room Database** with Kotlin Symbol Processing (KSP) for lightweight, compile-safe local SQL caching.
+- **Audio Playback Engine**: Custom stateful Android ExoPlayer wrapper ensuring high-fidelity hardware decoding and background playback compatibility.
+- **Testing**: Complete JVM local test coverage using **Robolectric** for context validation and **Roborazzi** for pixel-perfect screenshot visual regression tests.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Android Studio** Ladybug (or newer)
+- **Android SDK** 34+
+- **JDK** 17+
+
+### Running the App
+
+1. Clone or download the project workspace ZIP.
+2. Open the project in Android Studio.
+3. Sync the Gradle configuration files.
+4. Run the `:app` module on a modern Android device or emulator.
+
+### How to Import Local Music
+
+1. Navigate to the **Your Library** or **Home** screen.
+2. Tap the **Import** button (indicated by the upload/publish icon `Publish`).
+3. Select any `.mp3` or compatible audio file from your device's storage.
+4. SoundWave will copy the file, extract its metadata, and automatically insert it into your playable library list!
+
+---
+
+## 📂 Project Structure
+
+```text
+/app/src/main/java/com/example/
+├── MainActivity.kt          # Main UI entry point, Scaffold, and Screen compositions
+├── data/
+│   ├── MusicDatabase.kt     # Room SQLite Database initialization
+│   ├── TrackDao.kt          # Data Access Object for local track indexing
+│   └── TrackEntity.kt       # Local Database Track entity definition
+├── player/
+│   └── AudioPlayerManager.kt# ExoPlayer lifecycle & hardware playback coordinator
+└── viewmodel/
+    └── MusicViewModel.kt    # State machine coordinating UI flows, queries, and file importing
+```
+
+---
+
+## 🧪 Running Automated Tests
+
+To maintain premium quality and prevent regressions, SoundWave includes fully automated JVM tests:
+
+```bash
+# Run local JVM unit and integration tests (Robolectric)
+gradle :app:testDebugUnitTest
+
+# Verify UI layouts and screenshot visuals (Roborazzi)
+gradle :app:verifyRoborazziDebug
+
+# Record new visual screenshots after modifying Compose components
+gradle :app:recordRoborazziDebug
+```
+
+---
+
+*Enjoy a clean, fast, and gorgeous listening experience with **SoundWave**!*

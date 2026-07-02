@@ -224,10 +224,14 @@ fun MainAppScreen() {
                         MiniPlayer(
                             track = currentTrack!!,
                             isPlaying = isPlaying,
-                            progress = if (playbackDuration > 0) playbackPosition.toFloat() / playbackDuration else 0f,
+                            position = playbackPosition,
+                            duration = playbackDuration,
                             isBuffering = isBuffering,
                             onPlayPauseClick = { viewModel.playerManager.togglePlayPause() },
                             onLikeClick = { viewModel.toggleLike(currentTrack!!) },
+                            onSkipNextClick = { viewModel.playerManager.skipToNext() },
+                            onSkipPreviousClick = { viewModel.playerManager.skipToPrevious() },
+                            onSeek = { viewModel.playerManager.seekTo(it) },
                             onClick = { viewModel.setPlayerExpanded(true) }
                         )
                     }
@@ -1166,10 +1170,14 @@ fun PlaylistDetailScreen(
 fun MiniPlayer(
     track: TrackEntity,
     isPlaying: Boolean,
-    progress: Float,
+    position: Long,
+    duration: Long,
     isBuffering: Boolean,
     onPlayPauseClick: () -> Unit,
     onLikeClick: () -> Unit,
+    onSkipNextClick: () -> Unit,
+    onSkipPreviousClick: () -> Unit,
+    onSeek: (Long) -> Unit,
     onClick: () -> Unit
 ) {
     Card(
@@ -1177,21 +1185,24 @@ fun MiniPlayer(
         colors = CardDefaults.cardColors(containerColor = SpotifySurface),
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
             .shadow(4.dp, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .testTag("mini_player")
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 4.dp, start = 8.dp, end = 8.dp)
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 8.dp)
+                    .fillMaxWidth()
+                    .height(56.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(42.dp)
                         .clip(RoundedCornerShape(4.dp))
                 ) {
                     TrackCoverImage(
@@ -1204,7 +1215,7 @@ fun MiniPlayer(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 12.dp)
+                        .padding(horizontal = 8.dp)
                 ) {
                     Text(
                         text = track.title,
@@ -1236,6 +1247,18 @@ fun MiniPlayer(
                 }
 
                 IconButton(
+                    onClick = onSkipPreviousClick,
+                    modifier = Modifier.testTag("mini_prev_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipPrevious,
+                        contentDescription = "Previous",
+                        tint = SpotifyWhite,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                IconButton(
                     onClick = onPlayPauseClick,
                     modifier = Modifier.testTag("mini_play_pause_btn")
                 ) {
@@ -1254,16 +1277,44 @@ fun MiniPlayer(
                         )
                     }
                 }
+
+                IconButton(
+                    onClick = onSkipNextClick,
+                    modifier = Modifier.testTag("mini_next_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipNext,
+                        contentDescription = "Next",
+                        tint = SpotifyWhite,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
-            // Small horizontal progress line at the very bottom
-            LinearProgressIndicator(
-                progress = { progress },
-                color = SpotifyGreen,
-                trackColor = SpotifySurfaceVariant,
+            // Interactive Progress Slider for the music
+            var isDragging by remember { mutableStateOf(false) }
+            var dragPosition by remember { mutableStateOf(0f) }
+            val currentProgress = if (isDragging) dragPosition else (if (duration > 0) position.toFloat() / duration else 0f)
+
+            Slider(
+                value = currentProgress.coerceIn(0f, 1f),
+                onValueChange = {
+                    isDragging = true
+                    dragPosition = it
+                },
+                onValueChangeFinished = {
+                    isDragging = false
+                    onSeek((dragPosition * duration).toLong())
+                },
+                colors = SliderDefaults.colors(
+                    activeTrackColor = SpotifyGreen,
+                    inactiveTrackColor = SpotifySurfaceVariant,
+                    thumbColor = SpotifyGreen
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
+                    .height(18.dp)
+                    .testTag("mini_player_slider")
             )
         }
     }
