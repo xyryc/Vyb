@@ -81,6 +81,14 @@ fun MainAppScreen() {
         )
     )
 
+    val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            viewModel.importLocalMp3(it)
+        }
+    }
+
     val currentScreen by viewModel.currentScreen.collectAsState()
     val allTracks by viewModel.allTracks.collectAsState()
     val likedTracks by viewModel.likedTracks.collectAsState()
@@ -186,6 +194,7 @@ fun MainAppScreen() {
                         onPlaylistClick = { viewModel.navigateTo(ScreenState.PlaylistDetail(it)) },
                         onTrackClick = { track -> viewModel.playTrack(track, likedTracks) },
                         onCreatePlaylistClick = { viewModel.showCreatePlaylistDialog(true) },
+                        onImportClick = { filePickerLauncher.launch("audio/*") },
                         currentTrack = currentTrack,
                         onLikeClick = { viewModel.toggleLike(it) }
                     )
@@ -690,6 +699,7 @@ fun LibraryScreen(
     onPlaylistClick: (PlaylistEntity) -> Unit,
     onTrackClick: (TrackEntity) -> Unit,
     onCreatePlaylistClick: () -> Unit,
+    onImportClick: () -> Unit,
     currentTrack: TrackEntity?,
     onLikeClick: (TrackEntity) -> Unit
 ) {
@@ -713,11 +723,32 @@ fun LibraryScreen(
                 fontWeight = FontWeight.Bold,
                 color = SpotifyWhite
             )
-            IconButton(
-                onClick = onCreatePlaylistClick,
-                modifier = Modifier.testTag("create_playlist_fab")
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Create Playlist", tint = SpotifyWhite)
+                IconButton(
+                    onClick = onImportClick,
+                    modifier = Modifier.testTag("import_music_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Publish,
+                        contentDescription = "Import MP3",
+                        tint = SpotifyGreen,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = onCreatePlaylistClick,
+                    modifier = Modifier.testTag("create_playlist_fab")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "Create Playlist",
+                        tint = SpotifyWhite,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
             }
         }
 

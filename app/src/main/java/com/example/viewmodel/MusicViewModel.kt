@@ -63,6 +63,95 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         prepopulateDatabaseIfNeeded()
     }
 
+    fun importLocalMp3(uri: android.net.Uri) {
+        viewModelScope.launch {
+            try {
+                val context = getApplication<Application>()
+                val resolver = context.contentResolver
+                
+                val id = "local_${System.currentTimeMillis()}"
+                
+                val retriever = android.media.MediaMetadataRetriever()
+                var title = "Local Audio"
+                var artist = "Unknown Artist"
+                var album = "Local Album"
+                var durationMs = 0L
+                var genre = "Local"
+                
+                try {
+                    retriever.setDataSource(context, uri)
+                    title = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE) ?: getFileName(context, uri) ?: "Local Audio"
+                    artist = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: "Unknown Artist"
+                    album = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM) ?: "Local Album"
+                    val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    durationMs = durationStr?.toLongOrNull() ?: 0L
+                    genre = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_GENRE) ?: "Local"
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    try {
+                        retriever.release()
+                    } catch (e: Exception) {}
+                }
+
+                // Copy audio file to local files directory to ensure offline availability
+                val destinationFile = java.io.File(context.filesDir, "$id.mp3")
+                resolver.openInputStream(uri)?.use { input ->
+                    destinationFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                // Stylish Unsplash background cover for local files
+                val coverUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop"
+
+                val localTrack = TrackEntity(
+                    id = id,
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    durationMs = durationMs,
+                    audioUrl = destinationFile.absolutePath,
+                    coverUrl = coverUrl,
+                    genre = genre
+                )
+
+                repository.insertTracks(listOf(localTrack))
+                
+                // Refresh player queue
+                val updatedTracks = repository.allTracks.first()
+                playerManager.setQueue(updatedTracks)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun getFileName(context: android.content.Context, uri: android.net.Uri): String? {
+        var result: String? = null
+        if (uri.scheme == "content") {
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            try {
+                if (cursor != null && cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (index != -1) {
+                        result = cursor.getString(index)
+                    }
+                }
+            } finally {
+                cursor?.close()
+            }
+        }
+        if (result == null) {
+            result = uri.path
+            val cut = result?.lastIndexOf('/') ?: -1
+            if (cut != -1) {
+                result = result?.substring(cut + 1)
+            }
+        }
+        return result?.removeSuffix(".mp3")
+    }
+
     private fun prepopulateDatabaseIfNeeded() {
         viewModelScope.launch {
             // Check if database is empty
