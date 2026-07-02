@@ -59,6 +59,49 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _showAddToPlaylistDialog = MutableStateFlow<TrackEntity?>(null)
     val showAddToPlaylistDialog: StateFlow<TrackEntity?> = _showAddToPlaylistDialog.asStateFlow()
 
+    private val _sleepTimerRemaining = MutableStateFlow(0L)
+    val sleepTimerRemaining: StateFlow<Long> = _sleepTimerRemaining.asStateFlow()
+
+    private val _showSleepTimerDialog = MutableStateFlow(false)
+    val showSleepTimerDialog: StateFlow<Boolean> = _showSleepTimerDialog.asStateFlow()
+
+    private var sleepTimerJob: kotlinx.coroutines.Job? = null
+
+    fun showSleepTimerDialog(show: Boolean) {
+        _showSleepTimerDialog.value = show
+    }
+
+    fun setSleepTimer(minutes: Int) {
+        sleepTimerJob?.cancel()
+        if (minutes <= 0) {
+            _sleepTimerRemaining.value = 0L
+            return
+        }
+
+        val durationMs = minutes * 60 * 1000L
+        val endTime = System.currentTimeMillis() + durationMs
+
+        sleepTimerJob = viewModelScope.launch {
+            _sleepTimerRemaining.value = durationMs
+            while (System.currentTimeMillis() < endTime) {
+                val remaining = endTime - System.currentTimeMillis()
+                _sleepTimerRemaining.value = remaining.coerceAtLeast(0L)
+                if (remaining <= 0) break
+                kotlinx.coroutines.delay(1000)
+            }
+            _sleepTimerRemaining.value = 0L
+            // Pause playback when timer expires
+            if (playerManager.isPlaying.value) {
+                playerManager.togglePlayPause()
+            }
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        _sleepTimerRemaining.value = 0L
+    }
+
     init {
         prepopulateDatabaseIfNeeded()
     }

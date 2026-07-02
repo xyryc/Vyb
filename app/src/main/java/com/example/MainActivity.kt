@@ -72,6 +72,18 @@ fun formatDuration(ms: Long): String {
     return String.format("%d:%02d", minutes, seconds)
 }
 
+fun formatSleepTimer(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format("%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format("%02d:%02d", minutes, seconds)
+    }
+}
+
 @Composable
 fun MainAppScreen() {
     val context = LocalContext.current
@@ -99,6 +111,8 @@ fun MainAppScreen() {
     val isPlayerExpanded by viewModel.isPlayerExpanded.collectAsState()
     val showCreatePlaylistDialog by viewModel.showCreatePlaylistDialog.collectAsState()
     val showAddToPlaylistDialog by viewModel.showAddToPlaylistDialog.collectAsState()
+    val showSleepTimerDialog by viewModel.showSleepTimerDialog.collectAsState()
+    val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
 
     // Player states
     val currentTrack by viewModel.playerManager.currentTrack.collectAsState()
@@ -261,6 +275,8 @@ fun MainAppScreen() {
                     isShuffleEnabled = isShuffleEnabled,
                     isRepeatEnabled = isRepeatEnabled,
                     playlists = playlists,
+                    sleepTimerRemainingMs = sleepTimerRemaining,
+                    onSleepTimerClick = { viewModel.showSleepTimerDialog(true) },
                     onSeek = { viewModel.playerManager.seekTo(it) },
                     onPlayPauseClick = { viewModel.playerManager.togglePlayPause() },
                     onPreviousClick = { viewModel.playerManager.skipToPrevious() },
@@ -290,6 +306,21 @@ fun MainAppScreen() {
                 onPlaylistSelected = { playlistId ->
                     viewModel.addTrackToPlaylist(playlistId, showAddToPlaylistDialog!!.id)
                 }
+            )
+        }
+
+        if (showSleepTimerDialog) {
+            SleepTimerDialog(
+                onDismiss = { viewModel.showSleepTimerDialog(false) },
+                onSelectTimer = { minutes ->
+                    viewModel.setSleepTimer(minutes)
+                    viewModel.showSleepTimerDialog(false)
+                },
+                onCancelTimer = {
+                    viewModel.cancelSleepTimer()
+                    viewModel.showSleepTimerDialog(false)
+                },
+                currentRemainingMs = sleepTimerRemaining
             )
         }
     }
@@ -1330,6 +1361,8 @@ fun ExpandedPlayerScreen(
     isShuffleEnabled: Boolean,
     isRepeatEnabled: Boolean,
     playlists: List<PlaylistEntity>,
+    sleepTimerRemainingMs: Long,
+    onSleepTimerClick: () -> Unit,
     onSeek: (Long) -> Unit,
     onPlayPauseClick: () -> Unit,
     onPreviousClick: () -> Unit,
@@ -1472,7 +1505,38 @@ fun ExpandedPlayerScreen(
                 Text(formatDuration(duration), color = SpotifyGrey, fontSize = 12.sp)
             }
 
-            Spacer(modifier = Modifier.weight(0.5f))
+            Spacer(modifier = Modifier.weight(0.2f))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSleepTimerClick() }
+                    .padding(vertical = 8.dp)
+                    .testTag("player_sleep_timer_status_row")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = "Sleep Timer",
+                    tint = if (sleepTimerRemainingMs > 0) SpotifyGreen else SpotifyWhite,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (sleepTimerRemainingMs > 0) {
+                        "Stops in ${formatSleepTimer(sleepTimerRemainingMs)}"
+                    } else {
+                        "Set Sleep Timer"
+                    },
+                    color = if (sleepTimerRemainingMs > 0) SpotifyGreen else SpotifyGrey,
+                    fontSize = 14.sp,
+                    fontWeight = if (sleepTimerRemainingMs > 0) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.testTag("sleep_timer_status_text")
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(0.3f))
 
             // Controls (Shuffle, Prev, Play/Pause, Next, Repeat)
             Row(
@@ -1655,6 +1719,106 @@ fun AddToPlaylistDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = SpotifyWhite)
+            }
+        }
+    )
+}
+
+@Composable
+fun SleepTimerDialog(
+    onDismiss: () -> Unit,
+    onSelectTimer: (Int) -> Unit,
+    onCancelTimer: () -> Unit,
+    currentRemainingMs: Long
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Sleep Timer",
+                color = SpotifyWhite,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (currentRemainingMs > 0) {
+                    Text(
+                        text = "Current timer: ${formatSleepTimer(currentRemainingMs)} remaining",
+                        color = SpotifyGreen,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                } else {
+                    Text(
+                        text = "Stop audio playback after a set time.",
+                        color = SpotifyGrey,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                val presets = listOf(
+                    5 to "5 Minutes",
+                    15 to "15 Minutes",
+                    30 to "30 Minutes",
+                    45 to "45 Minutes",
+                    60 to "60 Minutes"
+                )
+
+                presets.forEach { (minutes, label) ->
+                    TextButton(
+                        onClick = { onSelectTimer(minutes) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("sleep_timer_preset_$minutes")
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccessTime,
+                                contentDescription = null,
+                                tint = SpotifyGreen,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = label,
+                                color = SpotifyWhite,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        containerColor = SpotifySurface,
+        confirmButton = {
+            if (currentRemainingMs > 0) {
+                Button(
+                    onClick = onCancelTimer,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    modifier = Modifier.testTag("sleep_timer_cancel_btn")
+                ) {
+                    Text("Turn Off Timer", color = SpotifyWhite, fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("sleep_timer_dismiss_btn")
+            ) {
+                Text("Close", color = SpotifyWhite)
             }
         }
     )
