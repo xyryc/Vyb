@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -196,6 +197,7 @@ fun MainAppScreen(
     val isBuffering by viewModel.playerManager.isBuffering.collectAsState()
     val isShuffleEnabled by viewModel.playerManager.isShuffleEnabled.collectAsState()
     val isRepeatEnabled by viewModel.playerManager.isRepeatEnabled.collectAsState()
+    var showEqualizer by remember { mutableStateOf(false) }
 
     // Dynamic Gradient Background states
     var dominantColor by remember { mutableStateOf(SpotifyBlack) }
@@ -440,6 +442,7 @@ fun MainAppScreen(
                     onRepeatClick = { viewModel.playerManager.toggleRepeat() },
                     onLikeClick = { viewModel.toggleLike(currentTrack!!) },
                     onAddToPlaylistClick = { viewModel.showAddToPlaylistDialog(currentTrack) },
+                    onEqualizerClick = { showEqualizer = true },
                     onCollapse = { viewModel.setPlayerExpanded(false) },
                     dominantColor = animatedDominantColor,
                     secondaryColor = animatedSecondaryColor
@@ -463,6 +466,13 @@ fun MainAppScreen(
                 onPlaylistSelected = { playlistId ->
                     viewModel.addTrackToPlaylist(playlistId, showAddToPlaylistDialog!!.id)
                 }
+            )
+        }
+
+        if (showEqualizer) {
+            EqualizerDialog(
+                viewModel = viewModel,
+                onDismiss = { showEqualizer = false }
             )
         }
     }
@@ -1842,6 +1852,7 @@ fun ExpandedPlayerScreen(
     onRepeatClick: () -> Unit,
     onLikeClick: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
+    onEqualizerClick: () -> Unit,
     onCollapse: () -> Unit,
     dominantColor: Color = SpotifySurface,
     secondaryColor: Color = SpotifyBlack
@@ -1872,13 +1883,18 @@ fun ExpandedPlayerScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                IconButton(
-                    onClick = onCollapse,
-                    modifier = Modifier.testTag("player_collapse_btn")
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Collapse", tint = SpotifyWhite, modifier = Modifier.size(32.dp))
+                    IconButton(
+                        onClick = onCollapse,
+                        modifier = Modifier.testTag("player_collapse_btn")
+                    ) {
+                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Collapse", tint = SpotifyWhite, modifier = Modifier.size(32.dp))
+                    }
                 }
-                Spacer(modifier = Modifier.weight(1f))
+                
                 Text(
                     text = track.album,
                     fontSize = 14.sp,
@@ -1889,12 +1905,24 @@ fun ExpandedPlayerScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(2f)
                 )
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(
-                    onClick = onAddToPlaylistClick,
-                    modifier = Modifier.testTag("player_add_playlist_btn")
+
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Filled.PlaylistAdd, contentDescription = "Add to playlist", tint = SpotifyWhite)
+                    IconButton(
+                        onClick = onEqualizerClick,
+                        modifier = Modifier.testTag("player_equalizer_btn")
+                    ) {
+                        Icon(Icons.Filled.Tune, contentDescription = "Equalizer", tint = SpotifyWhite)
+                    }
+                    IconButton(
+                        onClick = onAddToPlaylistClick,
+                        modifier = Modifier.testTag("player_add_playlist_btn")
+                    ) {
+                        Icon(Icons.Filled.PlaylistAdd, contentDescription = "Add to playlist", tint = SpotifyWhite)
+                    }
                 }
             }
 
@@ -3003,13 +3031,13 @@ fun SettingsScreen(
             }
         }
 
-        // Equalizer Mock Section
+        // Real Equalizer Settings Section
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
             colors = CardDefaults.cardColors(containerColor = SpotifySurface),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -3018,74 +3046,86 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Tune,
-                        contentDescription = "Equalizer",
-                        tint = SpotifyGreen,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(currentAccent.color.copy(alpha = 0.1f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Tune,
+                            contentDescription = "Equalizer",
+                            tint = currentAccent.color,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Audio Equalizer",
+                            text = "Acoustic Equalizer",
                             fontWeight = FontWeight.Bold,
                             color = SpotifyWhite,
                             fontSize = 16.sp
                         )
+                        val isEqualizerEnabled by viewModel.isEqualizerEnabled.collectAsState()
                         Text(
-                            text = "Tune the acoustic balance of your sound",
-                            color = SpotifyGrey,
-                            fontSize = 13.sp
+                            text = if (isEqualizerEnabled) "Equalizer & Sound Effects Active" else "Enhance your offline listening experience",
+                            color = if (isEqualizerEnabled) currentAccent.color else SpotifyGrey,
+                            fontSize = 12.sp
                         )
                     }
+                    val isEqualizerEnabled by viewModel.isEqualizerEnabled.collectAsState()
+                    Switch(
+                        checked = isEqualizerEnabled,
+                        onCheckedChange = { viewModel.setEqualizerEnabled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = SpotifyBlack,
+                            checkedTrackColor = currentAccent.color,
+                            uncheckedThumbColor = SpotifyGrey,
+                            uncheckedTrackColor = SpotifySurfaceVariant
+                        ),
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = 0.85f
+                            scaleY = 0.85f
+                        }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                var bass by remember { mutableStateOf(0.7f) }
-                var mid by remember { mutableStateOf(0.5f) }
-                var treble by remember { mutableStateOf(0.8f) }
+                var showSettingsEqualizer by remember { mutableStateOf(false) }
 
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Bass", color = SpotifyWhite, fontSize = 13.sp, modifier = Modifier.width(60.dp))
-                        Slider(
-                            value = bass,
-                            onValueChange = { bass = it },
-                            colors = SliderDefaults.colors(
-                                thumbColor = SpotifyGreen,
-                                activeTrackColor = SpotifyGreen,
-                                inactiveTrackColor = SpotifySurfaceVariant
-                            ),
-                            modifier = Modifier.weight(1f)
+                Button(
+                    onClick = { showSettingsEqualizer = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Tune,
+                            contentDescription = null,
+                            tint = SpotifyWhite,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Open Equalizer Studio",
+                            color = SpotifyWhite,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
                         )
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Mids", color = SpotifyWhite, fontSize = 13.sp, modifier = Modifier.width(60.dp))
-                        Slider(
-                            value = mid,
-                            onValueChange = { mid = it },
-                            colors = SliderDefaults.colors(
-                                thumbColor = SpotifyGreen,
-                                activeTrackColor = SpotifyGreen,
-                                inactiveTrackColor = SpotifySurfaceVariant
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Treble", color = SpotifyWhite, fontSize = 13.sp, modifier = Modifier.width(60.dp))
-                        Slider(
-                            value = treble,
-                            onValueChange = { treble = it },
-                            colors = SliderDefaults.colors(
-                                thumbColor = SpotifyGreen,
-                                activeTrackColor = SpotifyGreen,
-                                inactiveTrackColor = SpotifySurfaceVariant
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                }
+
+                if (showSettingsEqualizer) {
+                    EqualizerDialog(
+                        viewModel = viewModel,
+                        onDismiss = { showSettingsEqualizer = false }
+                    )
                 }
             }
         }
@@ -3551,4 +3591,322 @@ fun formatListeningTime(seconds: Long): String {
         hours > 0 -> "${hours} hr ${minutes} min"
         else -> "${minutes} min"
     }
+}
+
+@Composable
+fun EqualizerDialog(
+    viewModel: MusicViewModel,
+    onDismiss: () -> Unit
+) {
+    val isEqualizerEnabled by viewModel.isEqualizerEnabled.collectAsState()
+    val currentPresetIndex by viewModel.currentPresetIndex.collectAsState()
+    val bandGains by viewModel.bandGains.collectAsState()
+    val bassBoostStrength by viewModel.bassBoostStrength.collectAsState()
+    val virtualizerStrength by viewModel.virtualizerStrength.collectAsState()
+    val presetNames by viewModel.presetNames.collectAsState()
+    val bandCenterFreqs by viewModel.bandCenterFreqs.collectAsState()
+    val themeAccent by viewModel.currentThemeAccent.collectAsState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Tune,
+                        contentDescription = "Equalizer Icon",
+                        tint = themeAccent.color,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Sound Control",
+                        color = SpotifyWhite,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (isEqualizerEnabled) "ON" else "OFF",
+                        color = if (isEqualizerEnabled) themeAccent.color else SpotifyGrey,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Switch(
+                        checked = isEqualizerEnabled,
+                        onCheckedChange = { viewModel.setEqualizerEnabled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = SpotifyBlack,
+                            checkedTrackColor = themeAccent.color,
+                            uncheckedThumbColor = SpotifyGrey,
+                            uncheckedTrackColor = SpotifySurfaceVariant
+                        ),
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = 0.85f
+                            scaleY = 0.85f
+                        }
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Column {
+                    Text(
+                        text = "Acoustic Profiles (Presets)",
+                        color = SpotifyGrey,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        item {
+                            val isSelected = currentPresetIndex == -1
+                            Card(
+                                onClick = { },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) themeAccent.color else SpotifySurfaceVariant
+                                ),
+                                modifier = Modifier.testTag("preset_custom")
+                            ) {
+                                Text(
+                                    text = "Custom",
+                                    color = if (isSelected) SpotifyBlack else SpotifyWhite,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+
+                        items(presetNames.size) { index ->
+                            val name = presetNames[index]
+                            val isSelected = currentPresetIndex == index
+                            Card(
+                                onClick = {
+                                    if (isEqualizerEnabled) {
+                                        viewModel.setPreset(index)
+                                    }
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) themeAccent.color else SpotifySurfaceVariant
+                                ),
+                                modifier = Modifier
+                                    .alpha(if (isEqualizerEnabled) 1f else 0.5f)
+                                    .testTag("preset_$index")
+                            ) {
+                                Text(
+                                    text = name,
+                                    color = if (isSelected) SpotifyBlack else SpotifyWhite,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = SpotifySurfaceVariant, thickness = 1.dp)
+
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Dynamic Frequency Response",
+                        color = SpotifyGrey,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    bandCenterFreqs.forEachIndexed { index, freq ->
+                        val gain = bandGains.getOrElse(index) { 0 }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(if (isEqualizerEnabled) 1f else 0.5f)
+                        ) {
+                            Text(
+                                text = if (freq >= 1000) "${freq / 1000} kHz" else "$freq Hz",
+                                color = SpotifyWhite,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.width(64.dp)
+                            )
+                            
+                            Slider(
+                                value = gain.toFloat(),
+                                onValueChange = {
+                                    if (isEqualizerEnabled) {
+                                        viewModel.setBandLevel(index, it.toInt())
+                                    }
+                                },
+                                valueRange = -15f..15f,
+                                steps = 30,
+                                colors = SliderDefaults.colors(
+                                    activeTrackColor = themeAccent.color,
+                                    inactiveTrackColor = SpotifySurfaceVariant,
+                                    thumbColor = themeAccent.color
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("eq_band_$index")
+                            )
+
+                            Text(
+                                text = if (gain > 0) "+$gain dB" else "$gain dB",
+                                color = if (gain != 0 && isEqualizerEnabled) themeAccent.color else SpotifyGrey,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.width(52.dp)
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = SpotifySurfaceVariant, thickness = 1.dp)
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Acoustic Effects Boosters",
+                        color = SpotifyGrey,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .alpha(if (isEqualizerEnabled) 1f else 0.5f)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.MusicNote, contentDescription = null, tint = SpotifyGrey, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = "Deep Bass Booster", color = SpotifyWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                            Text(
+                                text = "${(bassBoostStrength / 10)}%",
+                                color = if (bassBoostStrength > 0 && isEqualizerEnabled) themeAccent.color else SpotifyGrey,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Slider(
+                            value = bassBoostStrength.toFloat(),
+                            onValueChange = {
+                                if (isEqualizerEnabled) {
+                                    viewModel.setBassBoostStrength(it.toInt())
+                                }
+                            },
+                            valueRange = 0f..1000f,
+                            colors = SliderDefaults.colors(
+                                activeTrackColor = themeAccent.color,
+                                inactiveTrackColor = SpotifySurfaceVariant,
+                                thumbColor = themeAccent.color
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("bass_boost_slider")
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .alpha(if (isEqualizerEnabled) 1f else 0.5f)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Headset, contentDescription = null, tint = SpotifyGrey, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = "Spatial 3D Surround", color = SpotifyWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                            Text(
+                                text = "${(virtualizerStrength / 10)}%",
+                                color = if (virtualizerStrength > 0 && isEqualizerEnabled) themeAccent.color else SpotifyGrey,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Slider(
+                            value = virtualizerStrength.toFloat(),
+                            onValueChange = {
+                                if (isEqualizerEnabled) {
+                                    viewModel.setVirtualizerStrength(it.toInt())
+                                }
+                            },
+                            valueRange = 0f..1000f,
+                            colors = SliderDefaults.colors(
+                                activeTrackColor = themeAccent.color,
+                                inactiveTrackColor = SpotifySurfaceVariant,
+                                thumbColor = themeAccent.color
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("virtualizer_slider")
+                        )
+                    }
+                }
+                
+                if (!isEqualizerEnabled) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(themeAccent.color.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                            .border(1.dp, themeAccent.color.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "💡 Toggle the switch ON at the top to activate custom frequency bands, acoustic presets, deep bass boost, and spatial 3D audio!",
+                            color = themeAccent.color,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        },
+        containerColor = SpotifySurface,
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = themeAccent.color),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Text("Close", color = SpotifyBlack, fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }

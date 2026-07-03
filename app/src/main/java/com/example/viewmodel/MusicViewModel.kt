@@ -565,6 +565,35 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         _isPlayerExpanded.value = expanded
     }
 
+    // Equalizer & Sound booster delegation
+    val isEqualizerEnabled = playerManager.isEqualizerEnabled
+    val currentPresetIndex = playerManager.currentPresetIndex
+    val bandGains = playerManager.bandGains
+    val bassBoostStrength = playerManager.bassBoostStrength
+    val virtualizerStrength = playerManager.virtualizerStrength
+    val presetNames = playerManager.presetNames
+    val bandCenterFreqs = playerManager.bandCenterFreqs
+
+    fun setEqualizerEnabled(enabled: Boolean) {
+        playerManager.setEqualizerEnabled(enabled)
+    }
+
+    fun setPreset(presetIndex: Int) {
+        playerManager.setPreset(presetIndex)
+    }
+
+    fun setBandLevel(bandIndex: Int, levelDb: Int) {
+        playerManager.setBandLevel(bandIndex, levelDb)
+    }
+
+    fun setBassBoostStrength(strength: Int) {
+        playerManager.setBassBoostStrength(strength)
+    }
+
+    fun setVirtualizerStrength(strength: Int) {
+        playerManager.setVirtualizerStrength(strength)
+    }
+
     override fun onCleared() {
         super.onCleared()
         playerManager.release()
