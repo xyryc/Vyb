@@ -1,16 +1,25 @@
 package com.example.player
 
 import android.content.Context
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.net.Uri
 import android.util.Log
 import com.example.data.TrackEntity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 
 class AudioPlayerManager(private val context: Context) {
+    private val attributionContext: Context = if (android.os.Build.VERSION.SDK_INT >= 30) {
+        context.createAttributionContext("music_player")
+    } else {
+        context
+    }
+
     private var mediaPlayer: MediaPlayer? = null
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var positionUpdateJob: Job? = null
@@ -43,10 +52,76 @@ class AudioPlayerManager(private val context: Context) {
 
     init {
         initializeMediaPlayer()
+        setupMediaPlaybackServiceCallbacks()
+        observePlaybackStateForNotification()
+    }
+
+    private fun setupMediaPlaybackServiceCallbacks() {
+        MediaPlaybackService.onPlay = {
+            if (!_isPlaying.value) {
+                togglePlayPause()
+            }
+        }
+        MediaPlaybackService.onPause = {
+            if (_isPlaying.value) {
+                togglePlayPause()
+            }
+        }
+        MediaPlaybackService.onNext = {
+            skipToNext()
+        }
+        MediaPlaybackService.onPrevious = {
+            skipToPrevious()
+        }
+        MediaPlaybackService.onSeekTo = { pos ->
+            seekTo(pos)
+        }
+    }
+
+    private fun observePlaybackStateForNotification() {
+        scope.launch {
+            combine(currentTrack, isPlaying, playbackDuration) { track, playing, duration ->
+                Triple(track, playing, duration)
+            }.collect { (track, playing, duration) ->
+                if (track != null) {
+                    val intent = Intent(context, MediaPlaybackService::class.java).apply {
+                        putExtra("track_id", track.id)
+                        putExtra("track_title", track.title)
+                        putExtra("track_artist", track.artist)
+                        putExtra("track_artwork", track.coverUrl)
+                        putExtra("is_playing", playing)
+                        putExtra("track_position", _playbackPosition.value)
+                        putExtra("track_duration", duration)
+                    }
+                    try {
+                        if (android.os.Build.VERSION.SDK_INT >= 26) {
+                            context.startForegroundService(intent)
+                        } else {
+                            context.startService(intent)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AudioPlayerManager", "Failed to start MediaPlaybackService", e)
+                    }
+                } else {
+                    val intent = Intent(context, MediaPlaybackService::class.java).apply {
+                        action = MediaPlaybackService.ACTION_STOP
+                    }
+                    try {
+                        context.startService(intent)
+                    } catch (e: Exception) {
+                        Log.e("AudioPlayerManager", "Failed to stop MediaPlaybackService", e)
+                    }
+                }
+            }
+        }
     }
 
     private fun initializeMediaPlayer() {
-        mediaPlayer = MediaPlayer().apply {
+        mediaPlayer = if (android.os.Build.VERSION.SDK_INT >= 31) {
+            MediaPlayer(attributionContext)
+        } else {
+            MediaPlayer()
+        }.apply {
             setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
@@ -122,7 +197,7 @@ class AudioPlayerManager(private val context: Context) {
 
         try {
             mediaPlayer?.reset()
-            mediaPlayer?.setDataSource(track.audioUrl)
+            mediaPlayer?.setDataSource(attributionContext, Uri.parse(track.audioUrl))
             mediaPlayer?.prepareAsync()
             
             // If shuffle was enabled, ensure queue is ordered accordingly
@@ -167,9 +242,34 @@ class AudioPlayerManager(private val context: Context) {
             try {
                 mp.seekTo(positionMs.toInt())
                 _playbackPosition.value = positionMs
+                syncPositionToService()
             } catch (e: Exception) {
                 Log.e("AudioPlayerManager", "Error seeking", e)
             }
+        }
+    }
+
+    private fun syncPositionToService() {
+        val track = _currentTrack.value ?: return
+        val playing = _isPlaying.value
+        val duration = _playbackDuration.value
+        val intent = Intent(context, MediaPlaybackService::class.java).apply {
+            putExtra("track_id", track.id)
+            putExtra("track_title", track.title)
+            putExtra("track_artist", track.artist)
+            putExtra("track_artwork", track.coverUrl)
+            putExtra("is_playing", playing)
+            putExtra("track_position", _playbackPosition.value)
+            putExtra("track_duration", duration)
+        }
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (e: Exception) {
+            Log.e("AudioPlayerManager", "Failed to sync MediaPlaybackService position", e)
         }
     }
 
@@ -242,5 +342,10 @@ class AudioPlayerManager(private val context: Context) {
         scope.cancel()
         mediaPlayer?.release()
         mediaPlayer = null
+        MediaPlaybackService.onPlay = null
+        MediaPlaybackService.onPause = null
+        MediaPlaybackService.onNext = null
+        MediaPlaybackService.onPrevious = null
+        MediaPlaybackService.onSeekTo = null
     }
 }
