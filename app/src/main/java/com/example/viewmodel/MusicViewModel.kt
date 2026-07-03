@@ -121,6 +121,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         _sleepTimerRemaining.value = 0L
     }
 
+    fun extendSleepTimer(additionalMinutes: Int) {
+        val currentRemaining = _sleepTimerRemaining.value
+        val newRemainingMs = currentRemaining + (additionalMinutes * 60 * 1000L)
+        val newRemainingMinutes = (newRemainingMs / (1000 * 60)).toInt().coerceAtLeast(1)
+        setSleepTimer(newRemainingMinutes)
+    }
+
     init {
         prepopulateDatabaseIfNeeded()
         playerManager.onToggleLike = { track ->

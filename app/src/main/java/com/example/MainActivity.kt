@@ -2346,6 +2346,23 @@ fun SettingsScreen(
     val currentAccent by viewModel.currentThemeAccent.collectAsState()
     val context = LocalContext.current
 
+    var customMinutes by remember { mutableStateOf(30f) }
+    var maxTimerDuration by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(sleepTimerRemaining) {
+        if (sleepTimerRemaining > maxTimerDuration) {
+            maxTimerDuration = sleepTimerRemaining
+        } else if (sleepTimerRemaining == 0L) {
+            maxTimerDuration = 0L
+        }
+    }
+
+    val progress = if (maxTimerDuration > 0L) {
+        sleepTimerRemaining.toFloat() / maxTimerDuration
+    } else {
+        0f
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -2475,115 +2492,6 @@ fun SettingsScreen(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
-
-                // Beautiful interactive miniature live mockup with the active color
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SpotifyBlack.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                        .border(1.dp, SpotifySurfaceVariant, RoundedCornerShape(12.dp))
-                        .padding(14.dp)
-                ) {
-                    Text(
-                        text = "LIVE THEME PREVIEW",
-                        color = SpotifyGrey,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(SpotifySurface, RoundedCornerShape(8.dp))
-                                    .border(1.dp, SpotifySurfaceVariant, RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.MusicNote,
-                                    contentDescription = null,
-                                    tint = SpotifyGreen,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = "Euphoria Aura",
-                                    color = SpotifyWhite,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Neon ${currentAccent.label.split(" ").last()}",
-                                    color = SpotifyGreen,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-
-                        // Compact play button styled with the current active accent
-                        Button(
-                            onClick = { },
-                            colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.PlayArrow,
-                                    contentDescription = null,
-                                    tint = SpotifyBlack,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    text = "PLAY",
-                                    color = SpotifyBlack,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Timeline bar styled with the current active accent
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("1:48", color = SpotifyGrey, fontSize = 10.sp)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(4.dp)
-                                .background(SpotifySurfaceVariant, RoundedCornerShape(50))
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.55f)
-                                    .fillMaxHeight()
-                                    .background(SpotifyGreen, RoundedCornerShape(50))
-                            )
-                        }
-                        Text("3:24", color = SpotifyGrey, fontSize = 10.sp)
-                    }
-                }
             }
         }
 
@@ -2593,7 +2501,7 @@ fun SettingsScreen(
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
             colors = CardDefaults.cardColors(containerColor = SpotifySurface),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -2602,12 +2510,19 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = "Sleep Timer",
-                        tint = SpotifyGreen,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(SpotifyGreen.copy(alpha = 0.1f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = "Sleep Timer",
+                            tint = SpotifyGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
@@ -2623,54 +2538,146 @@ fun SettingsScreen(
                                 "Automatically stop audio playback"
                             },
                             color = if (sleepTimerRemaining > 0) SpotifyGreen else SpotifyGrey,
-                            fontSize = 13.sp
+                            fontSize = 12.sp
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 if (sleepTimerRemaining > 0) {
-                    Button(
-                        onClick = { viewModel.cancelSleepTimer() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("cancel_sleep_timer_btn"),
-                        shape = RoundedCornerShape(8.dp)
+                            .background(SpotifyBlack.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .border(1.dp, SpotifySurfaceVariant, RoundedCornerShape(12.dp))
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Cancel Sleep Timer", color = SpotifyWhite, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "ACTIVE COUNTDOWN",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SpotifyGrey,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = formatSleepTimer(sleepTimerRemaining),
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = SpotifyWhite,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        
+                        LinearProgressIndicator(
+                            progress = progress,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(50)),
+                            color = SpotifyGreen,
+                            trackColor = SpotifySurfaceVariant
+                        )
+                        
+                        Spacer(modifier = Modifier.height(18.dp))
+                        
+                        Text(
+                            text = "Extend Timer",
+                            fontSize = 11.sp,
+                            color = SpotifyGrey,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.Start)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            listOf(5, 10, 15).forEach { extMinutes ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(SpotifySurfaceVariant, RoundedCornerShape(8.dp))
+                                        .clickable { viewModel.extendSleepTimer(extMinutes) }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "+${extMinutes}m",
+                                        color = SpotifyWhite,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Button(
+                            onClick = { viewModel.cancelSleepTimer() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("cancel_sleep_timer_btn"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Cancel Sleep Timer", color = SpotifyWhite, fontWeight = FontWeight.Bold)
+                        }
                     }
                 } else {
-                    Text(
-                        text = "Quick Presets:",
-                        color = SpotifyWhite,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Column(
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        val presets = listOf(5, 15, 30, 45, 60)
-                        presets.forEach { mins ->
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .background(SpotifySurfaceVariant, RoundedCornerShape(8.dp))
-                                    .clickable { viewModel.setSleepTimer(mins) }
-                                    .padding(vertical = 10.dp)
-                                    .testTag("settings_sleep_timer_$mins"),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "${mins}m",
-                                    color = SpotifyWhite,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Custom Duration",
+                                color = SpotifyWhite,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "${customMinutes.toInt()} min",
+                                color = SpotifyGreen,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Slider(
+                            value = customMinutes,
+                            onValueChange = { customMinutes = it },
+                            valueRange = 1f..120f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = SpotifyGreen,
+                                activeTrackColor = SpotifyGreen,
+                                inactiveTrackColor = SpotifySurfaceVariant
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Button(
+                            onClick = { viewModel.setSleepTimer(customMinutes.toInt()) },
+                            colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "Start Sleep Timer",
+                                color = SpotifyBlack,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
                         }
                     }
                 }
