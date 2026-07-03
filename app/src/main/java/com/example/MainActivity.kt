@@ -1,12 +1,14 @@
 package com.example
 
 import android.app.Application
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -67,6 +69,30 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 MainAppScreen()
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        try {
+            stopService(Intent(this, com.example.player.DynamicIslandOverlayService::class.java))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        val player = com.example.player.AudioPlayerManager.instance
+        if (player != null && player.isPlaying.value && Settings.canDrawOverlays(this)) {
+            val intent = Intent(this, com.example.player.DynamicIslandOverlayService::class.java).apply {
+                action = com.example.player.DynamicIslandOverlayService.ACTION_SHOW
+            }
+            try {
+                startService(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -235,6 +261,28 @@ fun MainAppScreen() {
                     )
                 }
 
+                // Dynamic Island (Floating overlay at the top, visible if track is playing and player is not expanded)
+                if (currentTrack != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 8.dp, start = 16.dp, end = 16.dp)
+                    ) {
+                        DynamicIslandPlayer(
+                            track = currentTrack!!,
+                            isPlaying = isPlaying,
+                            position = playbackPosition,
+                            duration = playbackDuration,
+                            isBuffering = isBuffering,
+                            onPlayPauseClick = { viewModel.playerManager.togglePlayPause() },
+                            onLikeClick = { viewModel.toggleLike(currentTrack!!) },
+                            onSkipNextClick = { viewModel.playerManager.skipToNext() },
+                            onSkipPreviousClick = { viewModel.playerManager.skipToPrevious() },
+                            onClick = { viewModel.setPlayerExpanded(true) }
+                        )
+                    }
+                }
+
                 // Mini Player (Only visible if a track is selected and player is not expanded)
                 if (currentTrack != null) {
                     Box(
@@ -377,6 +425,10 @@ fun HomeScreen(
                 color = SpotifyWhite,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
+        }
+
+        item {
+            DynamicIslandPermissionBanner()
         }
 
         // Quick Grid recommendations (like Spotify's top grid)
@@ -1829,4 +1881,367 @@ fun SleepTimerDialog(
             }
         }
     )
+}
+
+@Composable
+fun AudioVisualizerBars(isPlaying: Boolean, modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "bars")
+    val heights = if (isPlaying) {
+        listOf(
+            transition.animateFloat(
+                initialValue = 0.2f,
+                targetValue = 1.0f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(450, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "bar1"
+            ),
+            transition.animateFloat(
+                initialValue = 0.4f,
+                targetValue = 0.8f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(350, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "bar2"
+            ),
+            transition.animateFloat(
+                initialValue = 0.1f,
+                targetValue = 0.9f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(400, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "bar3"
+            )
+        )
+    } else {
+        listOf(
+            remember { mutableStateOf(0.3f) },
+            remember { mutableStateOf(0.2f) },
+            remember { mutableStateOf(0.3f) }
+        )
+    }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        heights.forEach { heightVal ->
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight(heightVal.value)
+                    .background(SpotifyGreen, shape = RoundedCornerShape(1.dp))
+            )
+        }
+    }
+}
+
+@Composable
+fun DynamicIslandPlayer(
+    track: TrackEntity,
+    isPlaying: Boolean,
+    position: Long,
+    duration: Long,
+    isBuffering: Boolean,
+    onPlayPauseClick: () -> Unit,
+    onLikeClick: () -> Unit,
+    onSkipNextClick: () -> Unit,
+    onSkipPreviousClick: () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    val animatedWidth by animateDpAsState(
+        targetValue = if (isExpanded) 340.dp else 190.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "width"
+    )
+    val animatedHeight by animateDpAsState(
+        targetValue = if (isExpanded) 120.dp else 40.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "height"
+    )
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Black),
+        modifier = modifier
+            .width(animatedWidth)
+            .height(animatedHeight)
+            .shadow(12.dp, RoundedCornerShape(24.dp))
+            .clickable { isExpanded = !isExpanded }
+            .animateContentSize()
+            .testTag("dynamic_island")
+    ) {
+        if (!isExpanded) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                ) {
+                    TrackCoverImage(
+                        url = track.coverUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                Text(
+                    text = track.title,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SpotifyWhite,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp),
+                    textAlign = TextAlign.Center
+                )
+
+                AudioVisualizerBars(
+                    isPlaying = isPlaying,
+                    modifier = Modifier
+                        .width(15.dp)
+                        .height(14.dp)
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                isExpanded = false
+                                onClick()
+                            }
+                    ) {
+                        TrackCoverImage(
+                            url = track.coverUrl,
+                            contentDescription = "Expand Full Player",
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = track.title,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SpotifyWhite,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = track.artist,
+                            fontSize = 11.sp,
+                            color = SpotifyGrey,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onLikeClick,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Like",
+                            tint = if (track.isLiked) SpotifyGreen else SpotifyGrey,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = formatDuration(position),
+                        fontSize = 10.sp,
+                        color = SpotifyGrey,
+                        modifier = Modifier.width(36.dp)
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = onSkipPreviousClick,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.SkipPrevious,
+                                contentDescription = "Previous",
+                                tint = SpotifyWhite,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onPlayPauseClick,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            if (isBuffering) {
+                                CircularProgressIndicator(
+                                    color = SpotifyGreen,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                    contentDescription = if (isPlaying) "Pause" else "Play",
+                                    tint = SpotifyWhite,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onSkipNextClick,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.SkipNext,
+                                contentDescription = "Next",
+                                tint = SpotifyWhite,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = formatDuration(duration),
+                        fontSize = 10.sp,
+                        color = SpotifyGrey,
+                        modifier = Modifier.width(36.dp),
+                        textAlign = TextAlign.End
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                val progress = if (duration > 0) position.toFloat() / duration else 0f
+                LinearProgressIndicator(
+                    progress = progress.coerceIn(0f, 1f),
+                    color = SpotifyGreen,
+                    trackColor = SpotifySurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(1.5.dp))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DynamicIslandPermissionBanner() {
+    val context = LocalContext.current
+    var hasPermission by remember { mutableStateOf(android.provider.Settings.canDrawOverlays(context)) }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                hasPermission = android.provider.Settings.canDrawOverlays(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    if (!hasPermission) {
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = SpotifySurface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+                .clickable {
+                    try {
+                        val intent = Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:${context.packageName}")
+                        )
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                .testTag("dynamic_island_permission_banner")
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(SpotifyGreen.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        tint = SpotifyGreen
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Enable Dynamic Island",
+                        fontWeight = FontWeight.Bold,
+                        color = SpotifyWhite,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Get sleek iOS-style floating controls when you minimize the app. Tap to set up!",
+                        color = SpotifyGrey,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = SpotifyGrey,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
 }

@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <attribution
         android:tag="music_player"
@@ -40,6 +41,11 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".player.DynamicIslandOverlayService"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 
 class AudioPlayerManager(private val context: Context) {
+    companion object {
+        @Volatile
+        var instance: AudioPlayerManager? = null
+            private set
+    }
+
     private val attributionContext: Context = if (android.os.Build.VERSION.SDK_INT >= 30) {
         context.createAttributionContext("music_player")
     } else {
@@ -138,6 +144,7 @@ class AudioPlayerManager(private val context: Context) {
     private var originalQueue: List<TrackEntity> = emptyList()
 
     init {
+        instance = this
         initializeMediaPlayer()
         setupMediaPlaybackServiceCallbacks()
         observePlaybackStateForNotification()
