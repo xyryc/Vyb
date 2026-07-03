@@ -98,6 +98,7 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation("androidx.documentfile:documentfile:1.0.1")
   implementation(libs.androidx.palette)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)

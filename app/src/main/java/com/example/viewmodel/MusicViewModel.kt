@@ -197,7 +197,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     durationMs = durationMs,
                     audioUrl = destinationFile.absolutePath,
                     coverUrl = coverUrl,
-                    genre = genre
+                    genre = genre,
+                    folderName = "Single Imports",
+                    importDate = System.currentTimeMillis()
                 )
 
                 repository.insertTracks(listOf(localTrack))
@@ -208,6 +210,131 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    fun importLocalFolder(treeUri: android.net.Uri) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val context = getApplication<Application>()
+                val rootFile = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri) ?: return@launch
+                val importedTracks = mutableListOf<TrackEntity>()
+                
+                scanDocumentFileForMp3s(context, rootFile, rootFile.name ?: "Imported Folder", importedTracks)
+                
+                if (importedTracks.isNotEmpty()) {
+                    repository.insertTracks(importedTracks)
+                    // Refresh player queue
+                    val updatedTracks = repository.allTracks.first()
+                    playerManager.setQueue(updatedTracks)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private suspend fun scanDocumentFileForMp3s(
+        context: android.content.Context,
+        documentFile: androidx.documentfile.provider.DocumentFile,
+        currentFolderName: String,
+        outputList: MutableList<TrackEntity>
+    ) {
+        if (documentFile.isDirectory) {
+            val files = documentFile.listFiles()
+            for (file in files) {
+                if (file.isDirectory) {
+                    val subFolder = file.name ?: currentFolderName
+                    scanDocumentFileForMp3s(context, file, subFolder, outputList)
+                } else if (file.isFile && (file.name?.endsWith(".mp3", ignoreCase = true) == true || file.type?.contains("audio") == true)) {
+                    val track = processMp3DocumentFile(context, file, currentFolderName)
+                    if (track != null) {
+                        outputList.add(track)
+                    }
+                }
+            }
+        } else if (documentFile.isFile && (documentFile.name?.endsWith(".mp3", ignoreCase = true) == true || documentFile.type?.contains("audio") == true)) {
+            val track = processMp3DocumentFile(context, documentFile, currentFolderName)
+            if (track != null) {
+                outputList.add(track)
+            }
+        }
+    }
+
+    private suspend fun processMp3DocumentFile(
+        context: android.content.Context,
+        file: androidx.documentfile.provider.DocumentFile,
+        folderName: String
+    ): TrackEntity? {
+        val resolver = context.contentResolver
+        val uri = file.uri
+        val id = "local_folder_${System.currentTimeMillis()}_${(1000..9999).random()}"
+        
+        var title = file.name?.removeSuffix(".mp3") ?: "Local Audio"
+        var artist = "Unknown Artist"
+        var album = "Local Album"
+        var durationMs = 0L
+        var genre = "Local"
+        var coverUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop"
+        
+        val retriever = android.media.MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, uri)
+            val extractedTitle = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE)
+            if (!extractedTitle.isNullOrEmpty()) {
+                title = extractedTitle
+            }
+            artist = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: "Unknown Artist"
+            album = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM) ?: "Local Album"
+            val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+            durationMs = durationStr?.toLongOrNull() ?: 0L
+            genre = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_GENRE) ?: "Local"
+            
+            // Extract embedded picture if available
+            val embeddedPicture = retriever.embeddedPicture
+            if (embeddedPicture != null) {
+                val coverFile = java.io.File(context.filesDir, "${id}_cover.jpg")
+                try {
+                    coverFile.outputStream().use { output ->
+                        output.write(embeddedPicture)
+                    }
+                    coverUrl = coverFile.absolutePath
+                } catch (writeEx: Exception) {
+                    writeEx.printStackTrace()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {}
+        }
+        
+        try {
+            // Copy audio file to local files directory to ensure offline availability
+            val destinationFile = java.io.File(context.filesDir, "$id.mp3")
+            resolver.openInputStream(uri)?.use { input ->
+                destinationFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            
+            return TrackEntity(
+                id = id,
+                title = title,
+                artist = artist,
+                album = album,
+                durationMs = durationMs,
+                audioUrl = destinationFile.absolutePath,
+                coverUrl = coverUrl,
+                genre = genre,
+                folderName = folderName,
+                importDate = System.currentTimeMillis()
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
         }
     }
 

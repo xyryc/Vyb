@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.outlined.List
@@ -164,6 +165,14 @@ fun MainAppScreen(
     ) { uri: android.net.Uri? ->
         uri?.let {
             viewModel.importLocalMp3(it)
+        }
+    }
+
+    val directoryPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            viewModel.importLocalFolder(it)
         }
     }
 
@@ -351,7 +360,8 @@ fun MainAppScreen(
                         onPlaylistClick = { viewModel.navigateTo(ScreenState.PlaylistDetail(it)) },
                         onTrackClick = { track -> viewModel.playTrack(track, likedTracks) },
                         onCreatePlaylistClick = { viewModel.showCreatePlaylistDialog(true) },
-                        onImportClick = { filePickerLauncher.launch("audio/*") },
+                        onImportFileClick = { filePickerLauncher.launch("audio/*") },
+                        onImportFolderClick = { directoryPickerLauncher.launch(null) },
                         currentTrack = currentTrack,
                         onLikeClick = { viewModel.toggleLike(it) }
                     )
@@ -871,11 +881,14 @@ fun LibraryScreen(
     onPlaylistClick: (PlaylistEntity) -> Unit,
     onTrackClick: (TrackEntity) -> Unit,
     onCreatePlaylistClick: () -> Unit,
-    onImportClick: () -> Unit,
+    onImportFileClick: () -> Unit,
+    onImportFolderClick: () -> Unit,
     currentTrack: TrackEntity?,
     onLikeClick: (TrackEntity) -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Playlists, 1 = Liked Songs
+    var selectedTab by remember { mutableStateOf(0) } // 0 = Playlists, 1 = Liked Songs, 2 = Insights, 3 = Smart Folders
+    var showImportMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -898,16 +911,40 @@ fun LibraryScreen(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = onImportClick,
-                    modifier = Modifier.testTag("import_music_btn")
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Publish,
-                        contentDescription = "Import MP3",
-                        tint = SpotifyGreen,
-                        modifier = Modifier.size(26.dp)
-                    )
+                Box {
+                    IconButton(
+                        onClick = { showImportMenu = true },
+                        modifier = Modifier.testTag("import_music_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Publish,
+                            contentDescription = "Import MP3 Options",
+                            tint = SpotifyGreen,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showImportMenu,
+                        onDismissRequest = { showImportMenu = false },
+                        modifier = Modifier.background(SpotifySurface)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Import MP3 File", color = SpotifyWhite) },
+                            onClick = {
+                                showImportMenu = false
+                                onImportFileClick()
+                            },
+                            leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null, tint = SpotifyGreen) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Import Entire Folder", color = SpotifyWhite) },
+                            onClick = {
+                                showImportMenu = false
+                                onImportFolderClick()
+                            },
+                            leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, tint = SpotifyGreen) }
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 IconButton(
@@ -924,10 +961,11 @@ fun LibraryScreen(
             }
         }
 
-        // Custom tabs
+        // Custom tabs with horizontal scroll to support multi-tab layouts gracefully
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
                 .padding(bottom = 16.dp)
         ) {
             Button(
@@ -961,6 +999,24 @@ fun LibraryScreen(
                 Text(
                     "Liked Songs",
                     color = if (selectedTab == 1) SpotifyBlack else SpotifyWhite,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+
+            Button(
+                onClick = { selectedTab = 3 },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (selectedTab == 3) SpotifyGreen else SpotifySurface
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .testTag("folders_tab")
+            ) {
+                Text(
+                    "Smart Folders",
+                    color = if (selectedTab == 3) SpotifyBlack else SpotifyWhite,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
@@ -1066,6 +1122,258 @@ fun LibraryScreen(
                     onTrackClick = onTrackClick,
                     onLikeClick = onLikeClick
                 )
+            }
+            3 -> {
+                SmartFoldersSection(
+                    tracks = allTracks,
+                    onTrackClick = onTrackClick,
+                    onLikeClick = onLikeClick,
+                    currentTrack = currentTrack
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SmartFoldersSection(
+    tracks: List<TrackEntity>,
+    onTrackClick: (TrackEntity) -> Unit,
+    onLikeClick: (TrackEntity) -> Unit,
+    currentTrack: TrackEntity?
+) {
+    // Grouping modes: 0 = Physical Folders, 1 = Artist, 2 = Genre, 3 = Import Date
+    var groupingMode by remember { mutableStateOf(0) }
+    var selectedGroup by remember { mutableStateOf<String?>(null) }
+
+    // Group the tracks dynamically based on groupingMode
+    val groupedTracks = remember(tracks, groupingMode) {
+        when (groupingMode) {
+            0 -> {
+                // Physical Folders
+                tracks.groupBy { 
+                    if (it.folderName.isEmpty()) "Prepopulated Collection" else it.folderName 
+                }
+            }
+            1 -> {
+                // Smart Folder: Artist
+                tracks.groupBy { it.artist }
+            }
+            2 -> {
+                // Smart Folder: Genre
+                tracks.groupBy { it.genre }
+            }
+            else -> {
+                // Smart Folder: Import Date
+                tracks.groupBy { track ->
+                    if (track.importDate == 0L) {
+                        "Prepopulated Collection"
+                    } else {
+                        val diffMs = System.currentTimeMillis() - track.importDate
+                        val diffHours = diffMs / (1000 * 60 * 60)
+                        when {
+                            diffHours < 24 -> "Today"
+                            diffHours < 168 -> "This Week"
+                            diffHours < 720 -> "This Month"
+                            else -> "Earlier This Year"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (selectedGroup == null) {
+            // Group Selection Grid/List
+            Text(
+                text = "Organize SoundWave By:",
+                color = SpotifyGrey,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    Pair(0, "📁 Folders"),
+                    Pair(1, "👤 Artists"),
+                    Pair(2, "🎶 Genres"),
+                    Pair(3, "📅 Import Dates")
+                ).forEach { (mode, label) ->
+                    val isSelected = groupingMode == mode
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { groupingMode = mode },
+                        label = { Text(label, color = if (isSelected) SpotifyBlack else SpotifyWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            containerColor = SpotifySurface
+                        ),
+                        border = null,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+
+            if (groupedTracks.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 80.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Filled.FolderOpen, contentDescription = null, tint = SpotifyGrey, modifier = Modifier.size(64.dp))
+                        Text(
+                            "No tracks found to group",
+                            color = SpotifyGrey,
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(bottom = 100.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(groupedTracks.keys.toList().sorted()) { groupKey ->
+                        val groupTracks = groupedTracks[groupKey] ?: emptyList()
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedGroup = groupKey },
+                            colors = CardDefaults.cardColors(containerColor = SpotifySurface),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = when (groupingMode) {
+                                            0 -> Icons.Filled.Folder
+                                            1 -> Icons.Filled.Person
+                                            2 -> Icons.Filled.MusicNote
+                                            else -> Icons.Filled.CalendarToday
+                                        },
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column {
+                                        Text(
+                                            text = groupKey,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SpotifyWhite,
+                                            fontSize = 14.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${groupTracks.size} ${if (groupTracks.size == 1) "track" else "tracks"}",
+                                            color = SpotifyGrey,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    imageVector = Icons.Filled.ChevronRight,
+                                    contentDescription = null,
+                                    tint = SpotifyGrey,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Nested track list for the selected group
+            val currentGroupKey = selectedGroup!!
+            val groupTracks = groupedTracks[currentGroupKey] ?: emptyList()
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { selectedGroup = null },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(SpotifySurface, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowBack,
+                        contentDescription = "Back to Folders",
+                        tint = SpotifyWhite,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = when (groupingMode) {
+                                0 -> Icons.Filled.Folder
+                                1 -> Icons.Filled.Person
+                                2 -> Icons.Filled.MusicNote
+                                else -> Icons.Filled.CalendarToday
+                            },
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = when (groupingMode) {
+                                0 -> "Physical Folder"
+                                1 -> "Artist Smart Folder"
+                                2 -> "Genre Smart Folder"
+                                else -> "Time Group"
+                            },
+                            color = SpotifyGrey,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = currentGroupKey,
+                        color = SpotifyWhite,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = 100.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(groupTracks) { track ->
+                    TrackListItem(
+                        track = track,
+                        isCurrent = currentTrack?.id == track.id,
+                        isPlaying = false,
+                        onClick = { onTrackClick(track) },
+                        onLikeClick = { onLikeClick(track) }
+                    )
+                }
             }
         }
     }

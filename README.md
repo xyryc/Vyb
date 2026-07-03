@@ -26,10 +26,12 @@ Below are the screenshots showcasing the application's beautiful visual design, 
 - 📊 **Fluid Live Audio Equalizer Waveform**: An animated, 4-bar reactive visualizer built directly into the Compact Pill state of the Dynamic Island. Bars oscillate and dance in real-time when music plays, matching the active brand accent color, and flatten gracefully when paused.
 - ⏱️ **Interactive Sleep Timer**: Set a time limit for your session using a custom slider (1 to 120 minutes). Features a monospace visual active countdown (`MM:SS`) with a depleting progress bar and convenient quick-extension triggers (`+5m`, `+10m`, `+15m`).
 - 📈 **Smart Insights & Statistics Dashboard**: Full-featured local analytics tracker parsing your total listening time (seconds), top genres, top artists, and top-played tracks based on real-time activity.
-- 📂 **Local MP3 File Importing**: 
-  - Effortlessly import your local `.mp3` audio files into your library.
+- 📂 **Intelligent Local Folder Importing & Auto-Grouping**: 
+  - Effortlessly import individual `.mp3` files or entire physical folder structures recursively.
   - Automatically parses track title, artist, album, duration, and genre metadata using advanced `MediaMetadataRetriever` extraction.
   - Safely clones files into the app's secure sandbox storage directory for reliable, continuous offline access.
+  - Maintains physical directory names and structures in a dedicated **Smart Folders** library tab.
+  - Dynamic **Auto-Grouping**: Automatically organizes and filters your local collection on-the-fly into "Smart Folders" grouped by **Physical Directory**, **Artist Tag**, **Genre**, or **Import Date** ("Today", "This Week", "This Month", etc.).
 - 💾 **Smart Playlist Engine & Library**:
   - Organize your tracks into custom playlists with custom titles and descriptions.
   - Dynamic interactive play queue: play, pause, shuffle, and skip seamlessly.
