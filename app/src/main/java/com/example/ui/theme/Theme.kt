@@ -8,11 +8,26 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme =
+enum class ThemeAccent(val label: String, val color: Color) {
+    SUNSET_AMBER("Sunset Amber", Color(0xFFFF9100)),
+    EMERALD_GLOW("Emerald Glow", Color(0xFF1ED760)),
+    COSMIC_BLUE("Cosmic Blue", Color(0xFF00E5FF)),
+    NEON_PURPLE("Neon Purple", Color(0xFFD500F9)),
+    CYBERPUNK_CORAL("Cyberpunk Coral", Color(0xFFFF2A7A)),
+    CLAUDE_CLAY("Claude Clay", Color(0xFFCC5A37)),
+    CLAUDE_APRICOT("Claude Apricot", Color(0xFFE0B8A5))
+}
+
+val LocalAccentColor = compositionLocalOf { Color(0xFFFF9100) }
+
+private fun getDarkColorScheme(primaryColor: Color) =
   darkColorScheme(
-    primary = SpotifyGreen,
+    primary = primaryColor,
     secondary = SpotifyGrey,
     tertiary = SpotifyDarkGreen,
     background = SpotifyBlack,
@@ -26,15 +41,14 @@ private val DarkColorScheme =
     onSurfaceVariant = SpotifyGrey
   )
 
-private val LightColorScheme = DarkColorScheme // Spotify is dark-only!
-
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = true, // Force premium dark mode
-  dynamicColor: Boolean = false, // Use our brand identity colors
+  primaryColor: Color = Color(0xFFFF9100),
   content: @Composable () -> Unit,
 ) {
-  val colorScheme = DarkColorScheme
+  val colorScheme = getDarkColorScheme(primaryColor)
 
-  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  CompositionLocalProvider(LocalAccentColor provides primaryColor) {
+    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  }
 }

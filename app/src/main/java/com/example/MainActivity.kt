@@ -13,12 +13,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -54,7 +58,6 @@ import com.example.data.PlaylistEntity
 import com.example.data.TrackEntity
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.SpotifyBlack
-import com.example.ui.theme.SpotifyGreen
 import com.example.ui.theme.SpotifyGrey
 import com.example.ui.theme.SpotifySurface
 import com.example.ui.theme.SpotifySurfaceVariant
@@ -62,6 +65,10 @@ import com.example.ui.theme.SpotifyWhite
 import com.example.viewmodel.MusicViewModel
 import com.example.viewmodel.ScreenState
 import java.util.Calendar
+
+val SpotifyGreen: Color
+    @Composable
+    get() = com.example.ui.theme.LocalAccentColor.current
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,8 +82,16 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MyApplicationTheme {
-                MainAppScreen()
+            val context = LocalContext.current
+            val viewModel: MusicViewModel = viewModel(
+                factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
+                    context.applicationContext as Application
+                )
+            )
+            val themeAccent by viewModel.currentThemeAccent.collectAsState()
+
+            MyApplicationTheme(primaryColor = themeAccent.color) {
+                MainAppScreen(viewModel = viewModel)
             }
         }
     }
@@ -135,13 +150,14 @@ fun formatSleepTimer(ms: Long): String {
 }
 
 @Composable
-fun MainAppScreen() {
-    val context = LocalContext.current
-    val viewModel: MusicViewModel = viewModel(
+fun MainAppScreen(
+    viewModel: MusicViewModel = viewModel(
         factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
-            context.applicationContext as Application
+            LocalContext.current.applicationContext as Application
         )
     )
+) {
+    val context = LocalContext.current
 
     val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
@@ -2327,6 +2343,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
+    val currentAccent by viewModel.currentThemeAccent.collectAsState()
     val context = LocalContext.current
 
     Column(
@@ -2344,6 +2361,231 @@ fun SettingsScreen(
             color = SpotifyWhite,
             modifier = Modifier.padding(bottom = 24.dp)
         )
+
+        // Theme Accent Colors Section
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = SpotifySurface),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(SpotifyGreen.copy(alpha = 0.1f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Palette,
+                            contentDescription = "Theme Accent",
+                            tint = SpotifyGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Theme Accent Colors",
+                            fontWeight = FontWeight.Bold,
+                            color = SpotifyWhite,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = "Select your neon brand flavor for the player",
+                            color = SpotifyGrey,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Smooth horizontal carousel of available brand styles
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
+                ) {
+                    items(com.example.ui.theme.ThemeAccent.values()) { accent ->
+                        val isSelected = currentAccent == accent
+                        val animatedScale by animateFloatAsState(
+                            targetValue = if (isSelected) 1.04f else 0.96f,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                            label = "accentScale"
+                        )
+                        val animatedAlpha by animateFloatAsState(
+                            targetValue = if (isSelected) 1.0f else 0.7f,
+                            label = "accentAlpha"
+                        )
+
+                        Card(
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    scaleX = animatedScale
+                                    scaleY = animatedScale
+                                    alpha = animatedAlpha
+                                }
+                                .clickable { viewModel.setThemeAccent(accent) }
+                                .testTag("theme_accent_${accent.name.lowercase()}"),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) SpotifySurfaceVariant else SpotifyBlack.copy(alpha = 0.4f)
+                            ),
+                            border = BorderStroke(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) accent.color else SpotifySurfaceVariant
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Double circular ring for beautiful depth
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .background(accent.color.copy(alpha = 0.2f), CircleShape)
+                                        .border(1.dp, accent.color.copy(alpha = 0.4f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .background(accent.color, CircleShape)
+                                    )
+                                }
+                                Text(
+                                    text = accent.label,
+                                    color = if (isSelected) SpotifyWhite else SpotifyGrey,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Beautiful interactive miniature live mockup with the active color
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SpotifyBlack.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        .border(1.dp, SpotifySurfaceVariant, RoundedCornerShape(12.dp))
+                        .padding(14.dp)
+                ) {
+                    Text(
+                        text = "LIVE THEME PREVIEW",
+                        color = SpotifyGrey,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(SpotifySurface, RoundedCornerShape(8.dp))
+                                    .border(1.dp, SpotifySurfaceVariant, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.MusicNote,
+                                    contentDescription = null,
+                                    tint = SpotifyGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "Euphoria Aura",
+                                    color = SpotifyWhite,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Neon ${currentAccent.label.split(" ").last()}",
+                                    color = SpotifyGreen,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        // Compact play button styled with the current active accent
+                        Button(
+                            onClick = { },
+                            colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.PlayArrow,
+                                    contentDescription = null,
+                                    tint = SpotifyBlack,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = "PLAY",
+                                    color = SpotifyBlack,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Timeline bar styled with the current active accent
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("1:48", color = SpotifyGrey, fontSize = 10.sp)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(4.dp)
+                                .background(SpotifySurfaceVariant, RoundedCornerShape(50))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.55f)
+                                    .fillMaxHeight()
+                                    .background(SpotifyGreen, RoundedCornerShape(50))
+                            )
+                        }
+                        Text("3:24", color = SpotifyGrey, fontSize = 10.sp)
+                    }
+                }
+            }
+        }
 
         // Sleep Timer Section
         Card(

@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import com.example.player.AudioPlayerManager
+import com.example.ui.theme.ThemeAccent
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -65,6 +66,23 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _showSleepTimerDialog = MutableStateFlow(false)
     val showSleepTimerDialog: StateFlow<Boolean> = _showSleepTimerDialog.asStateFlow()
+
+    private val sharedPrefs = application.getSharedPreferences("music_player_settings", android.content.Context.MODE_PRIVATE)
+
+    private val _currentThemeAccent = MutableStateFlow(
+        try {
+            val savedName = sharedPrefs.getString("theme_accent", ThemeAccent.SUNSET_AMBER.name)
+            ThemeAccent.valueOf(savedName ?: ThemeAccent.SUNSET_AMBER.name)
+        } catch (e: Exception) {
+            ThemeAccent.SUNSET_AMBER
+        }
+    )
+    val currentThemeAccent: StateFlow<ThemeAccent> = _currentThemeAccent.asStateFlow()
+
+    fun setThemeAccent(accent: ThemeAccent) {
+        _currentThemeAccent.value = accent
+        sharedPrefs.edit().putString("theme_accent", accent.name).apply()
+    }
 
     private var sleepTimerJob: kotlinx.coroutines.Job? = null
 

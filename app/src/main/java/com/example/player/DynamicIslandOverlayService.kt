@@ -256,6 +256,17 @@ fun DynamicIslandOverlayContent(
     val currentTrack = track ?: return
 
     val context = LocalContext.current
+    val currentAccent = remember {
+        try {
+            val sharedPrefs = context.getSharedPreferences("music_player_settings", android.content.Context.MODE_PRIVATE)
+            val savedName = sharedPrefs.getString("theme_accent", com.example.ui.theme.ThemeAccent.SUNSET_AMBER.name)
+            com.example.ui.theme.ThemeAccent.valueOf(savedName ?: com.example.ui.theme.ThemeAccent.SUNSET_AMBER.name)
+        } catch (e: Exception) {
+            com.example.ui.theme.ThemeAccent.SUNSET_AMBER
+        }
+    }
+    val SpotifyGreen = currentAccent.color
+
     val imageRequest = remember(currentTrack.coverUrl) {
         ImageRequest.Builder(context)
             .data(currentTrack.coverUrl)
