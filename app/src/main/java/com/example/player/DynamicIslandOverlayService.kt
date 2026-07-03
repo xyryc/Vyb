@@ -211,6 +211,12 @@ class DynamicIslandOverlayService : Service(), LifecycleOwner, ViewModelStoreOwn
         store.clear()
         serviceScope.cancel()
     }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        hideOverlay()
+        stopSelf()
+    }
 }
 
 @Composable

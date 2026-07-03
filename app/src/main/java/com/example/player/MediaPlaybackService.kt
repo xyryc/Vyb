@@ -390,8 +390,23 @@ class MediaPlaybackService : Service() {
             e.printStackTrace()
         }
         serviceScope.cancel()
+        mediaSession?.isActive = false
         mediaSession?.release()
         mediaSession = null
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        isServiceRunning = false
+        mediaSession?.isActive = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            stopForeground(true)
+        }
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.cancel(NOTIFICATION_ID)
+        stopSelf()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
