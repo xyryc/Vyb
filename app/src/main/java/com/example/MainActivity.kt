@@ -2346,6 +2346,17 @@ fun SettingsScreen(
     val currentAccent by viewModel.currentThemeAccent.collectAsState()
     val context = LocalContext.current
 
+    val sharedPrefs = remember(context) {
+        context.getSharedPreferences("music_player_settings", android.content.Context.MODE_PRIVATE)
+    }
+
+    var islandMode by remember {
+        mutableStateOf(sharedPrefs.getString("island_mode", "AUTO") ?: "AUTO")
+    }
+    var islandOpacity by remember {
+        mutableStateOf(sharedPrefs.getFloat("island_opacity", 0.95f))
+    }
+
     var customMinutes by remember { mutableStateOf(30f) }
     var maxTimerDuration by remember { mutableStateOf(0L) }
 
@@ -2771,62 +2782,233 @@ fun SettingsScreen(
             }
         }
 
-        // Dynamic Island Setting Banner
+        // Floating Dynamic Island Customization
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 32.dp)
-                .clickable {
-                    if (!Settings.canDrawOverlays(context)) {
-                        val intent = Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            android.net.Uri.parse("package:${context.packageName}")
-                        )
-                        context.startActivity(intent)
-                    }
-                },
+                .padding(bottom = 32.dp),
             colors = CardDefaults.cardColors(containerColor = SpotifySurface),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.padding(16.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(SpotifyGreen.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
-                        contentDescription = null,
-                        tint = SpotifyGreen
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(SpotifyGreen.copy(alpha = 0.1f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Layers,
+                            contentDescription = "Dynamic Island Settings",
+                            tint = SpotifyGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Floating Dynamic Island",
+                            fontWeight = FontWeight.Bold,
+                            color = SpotifyWhite,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = "Behavior & Overlay Styling",
+                            color = SpotifyGrey,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Permission Warning & Trigger button
+                val hasPermission = Settings.canDrawOverlays(context)
+                if (!hasPermission) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFF9800).copy(alpha = 0.15f)),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .clickable {
+                                    val intent = Intent(
+                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                        android.net.Uri.parse("package:${context.packageName}")
+                                    )
+                                    context.startActivity(intent)
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Warning,
+                                contentDescription = "Permission Required",
+                                tint = Color(0xFFFF9800),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "System Overlay Permission Required",
+                                    color = Color(0xFFFF9800),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Tap here to authorize displaying the float bar.",
+                                    color = SpotifyGrey,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = Color(0xFFFF9800),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SpotifyGreen.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = "Active",
+                            tint = SpotifyGreen,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Overlay Permission is active",
+                            color = SpotifyGreen,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Mode Selector Title
+                Text(
+                    text = "Overlay Modes",
+                    color = SpotifyWhite,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                // Layout Modes Options: COMPACT, EXPANDED, AUTO
+                val modes = listOf(
+                    Triple("COMPACT", "Compact Pill", "Always small & unobtrusive"),
+                    Triple("EXPANDED", "Expanded Card", "Always shows controls and details"),
+                    Triple("AUTO", "Auto-expanding", "Expands on long-press interaction")
+                )
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    modes.forEach { (modeKey, modeTitle, modeDesc) ->
+                        val isSelected = islandMode == modeKey
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (isSelected) SpotifySurfaceVariant else SpotifyBlack.copy(alpha = 0.3f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) SpotifyGreen else SpotifySurfaceVariant,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable {
+                                    islandMode = modeKey
+                                    sharedPrefs.edit().putString("island_mode", modeKey).apply()
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = {
+                                    islandMode = modeKey
+                                    sharedPrefs.edit().putString("island_mode", modeKey).apply()
+                                },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = SpotifyGreen,
+                                    unselectedColor = SpotifyGrey
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = modeTitle,
+                                    color = SpotifyWhite,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = modeDesc,
+                                    color = SpotifyGrey,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Transparency Slider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = "Dynamic Island Overlay",
-                        fontWeight = FontWeight.Bold,
+                        text = "Background Opacity",
                         color = SpotifyWhite,
-                        fontSize = 15.sp
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = if (Settings.canDrawOverlays(context)) {
-                            "Status: Permission Granted ✓"
-                        } else {
-                            "Enable floating overlay controls. Tap to configure!"
-                        },
-                        color = if (Settings.canDrawOverlays(context)) SpotifyGreen else SpotifyGrey,
-                        fontSize = 12.sp
+                        text = "${(islandOpacity * 100).toInt()}%",
+                        color = SpotifyGreen,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
-                Icon(
-                    imageVector = Icons.Filled.ChevronRight,
-                    contentDescription = null,
-                    tint = SpotifyGrey,
-                    modifier = Modifier.size(20.dp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Slider(
+                    value = islandOpacity,
+                    onValueChange = {
+                        islandOpacity = it
+                        sharedPrefs.edit().putFloat("island_opacity", it).apply()
+                    },
+                    valueRange = 0.3f..1.0f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = SpotifyGreen,
+                        activeTrackColor = SpotifyGreen,
+                        inactiveTrackColor = SpotifySurfaceVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }

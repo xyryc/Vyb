@@ -18,6 +18,14 @@ Below are the screenshots showcasing the application's beautiful visual design, 
 ## ✨ Features
 
 - 🎧 **Sleek, High-Contrast UI**: Beautiful Spotify-inspired Material 3 dark mode featuring vibrant dynamic color accents (Spotify Green) and smooth motion transitions.
+- 🌈 **Dynamic Brand Accents**: Personalize the entire app theme with gorgeous custom accents—choose between *Sunset Amber*, *Emerald Glow*, *Cosmic Blue*, *Neon Purple*, *Cyberpunk Coral*, *Claude Clay*, and *Claude Apricot*.
+- 🏝️ **Custom Floating Dynamic Island**: A system-level heads-up overlay that displays track information and playback controls on top of other applications.
+  - **Behavior Modes**: Switch between *Compact Pill* (small, unobtrusive), *Expanded Card* (always showing full control details), and *Auto-expanding* (expands on long-press).
+  - **Background Transparency**: Features a dynamic opacity slider ranging from 30% to 100% to control focus and visibility.
+  - **System Overlay Integration**: Safe permission check with automated setup guides.
+- 📊 **Fluid Live Audio Equalizer Waveform**: An animated, 4-bar reactive visualizer built directly into the Compact Pill state of the Dynamic Island. Bars oscillate and dance in real-time when music plays, matching the active brand accent color, and flatten gracefully when paused.
+- ⏱️ **Interactive Sleep Timer**: Set a time limit for your session using a custom slider (1 to 120 minutes). Features a monospace visual active countdown (`MM:SS`) with a depleting progress bar and convenient quick-extension triggers (`+5m`, `+10m`, `+15m`).
+- 📈 **Smart Insights & Statistics Dashboard**: Full-featured local analytics tracker parsing your total listening time (seconds), top genres, top artists, and top-played tracks based on real-time activity.
 - 📂 **Local MP3 File Importing**: 
   - Effortlessly import your local `.mp3` audio files into your library.
   - Automatically parses track title, artist, album, duration, and genre metadata using advanced `MediaMetadataRetriever` extraction.

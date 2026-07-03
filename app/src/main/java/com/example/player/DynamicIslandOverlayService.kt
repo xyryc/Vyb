@@ -233,17 +233,65 @@ fun DynamicIslandOverlayContent(
     val duration by player.playbackDuration.collectAsState()
     val isBuffering by player.isBuffering.collectAsState()
 
-    var isExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val sharedPrefs = remember(context) {
+        context.getSharedPreferences("music_player_settings", android.content.Context.MODE_PRIVATE)
+    }
+
+    var islandMode by remember {
+        mutableStateOf(sharedPrefs.getString("island_mode", "AUTO") ?: "AUTO")
+    }
+    var backgroundOpacity by remember {
+        mutableStateOf(sharedPrefs.getFloat("island_opacity", 0.95f))
+    }
+
+    DisposableEffect(sharedPrefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "island_mode") {
+                islandMode = sharedPrefs.getString("island_mode", "AUTO") ?: "AUTO"
+            } else if (key == "island_opacity") {
+                backgroundOpacity = sharedPrefs.getFloat("island_opacity", 0.95f)
+            }
+        }
+        sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            sharedPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    var isExpanded by remember(islandMode) {
+        mutableStateOf(
+            when (islandMode) {
+                "EXPANDED" -> true
+                "COMPACT" -> false
+                else -> false
+            }
+        )
+    }
+    val showExpanded = when (islandMode) {
+        "COMPACT" -> false
+        "EXPANDED" -> true
+        else -> isExpanded
+    }
+
     var sliderPosition by remember { mutableStateOf<Float?>(null) }
     val displayPosition = sliderPosition ?: position.toFloat()
 
     val animatedWidth by animateDpAsState(
-        targetValue = if (isExpanded) 340.dp else 190.dp,
+        targetValue = when (islandMode) {
+            "COMPACT" -> 190.dp
+            "EXPANDED" -> 340.dp
+            else -> if (isExpanded) 340.dp else 190.dp
+        },
         animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "width"
     )
     val animatedHeight by animateDpAsState(
-        targetValue = if (isExpanded) 155.dp else 40.dp,
+        targetValue = when (islandMode) {
+            "COMPACT" -> 40.dp
+            "EXPANDED" -> 155.dp
+            else -> if (isExpanded) 155.dp else 40.dp
+        },
         animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "height"
     )
@@ -255,10 +303,8 @@ fun DynamicIslandOverlayContent(
 
     val currentTrack = track ?: return
 
-    val context = LocalContext.current
     val currentAccent = remember {
         try {
-            val sharedPrefs = context.getSharedPreferences("music_player_settings", android.content.Context.MODE_PRIVATE)
             val savedName = sharedPrefs.getString("theme_accent", com.example.ui.theme.ThemeAccent.SUNSET_AMBER.name)
             com.example.ui.theme.ThemeAccent.valueOf(savedName ?: com.example.ui.theme.ThemeAccent.SUNSET_AMBER.name)
         } catch (e: Exception) {
@@ -276,22 +322,28 @@ fun DynamicIslandOverlayContent(
 
     Card(
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Black),
+        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = backgroundOpacity)),
         modifier = Modifier
             .width(animatedWidth)
             .height(animatedHeight)
             .alpha(alpha)
             .shadow(16.dp, RoundedCornerShape(24.dp))
             .animateContentSize()
-            .pointerInput(isExpanded) {
+            .pointerInput(showExpanded, islandMode) {
                 detectTapGestures(
                     onTap = {
-                        if (!isExpanded) {
+                        if (islandMode == "COMPACT") {
                             onOpenApp()
+                        } else if (islandMode == "EXPANDED") {
+                            onOpenApp()
+                        } else {
+                            if (!showExpanded) {
+                                onOpenApp()
+                            }
                         }
                     },
                     onLongPress = {
-                        if (!isExpanded) {
+                        if (islandMode == "AUTO" && !showExpanded) {
                             isExpanded = true
                             onInteraction()
                         }
@@ -299,7 +351,7 @@ fun DynamicIslandOverlayContent(
                 )
             }
     ) {
-        if (!isExpanded) {
+        if (!showExpanded) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -333,44 +385,74 @@ fun DynamicIslandOverlayContent(
                     textAlign = TextAlign.Center
                 )
 
+                val equalizerPlayFactor by animateFloatAsState(
+                    targetValue = if (isPlaying) 1f else 0.15f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessLow
+                    ),
+                    label = "equalizerPlayFactor"
+                )
+
+                val transition = rememberInfiniteTransition(label = "overlayBars")
+
+                val bar1Height by transition.animateFloat(
+                    initialValue = 0.2f,
+                    targetValue = 1.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 450, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "ob1"
+                )
+
+                val bar2Height by transition.animateFloat(
+                    initialValue = 0.4f,
+                    targetValue = 0.85f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 350, easing = LinearOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "ob2"
+                )
+
+                val bar3Height by transition.animateFloat(
+                    initialValue = 0.15f,
+                    targetValue = 0.95f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 500, easing = FastOutLinearInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "ob3"
+                )
+
+                val bar4Height by transition.animateFloat(
+                    initialValue = 0.3f,
+                    targetValue = 0.9f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "ob4"
+                )
+
                 Row(
                     modifier = Modifier
-                        .width(15.dp)
+                        .width(18.dp)
                         .height(14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(1.5.dp),
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    val transition = rememberInfiniteTransition(label = "overlayBars")
-                    val heights = if (isPlaying) {
-                        listOf(
-                            transition.animateFloat(
-                                initialValue = 0.2f, targetValue = 1.0f,
-                                animationSpec = infiniteRepeatable(tween(450, easing = LinearEasing), RepeatMode.Reverse),
-                                label = "ob1"
-                            ),
-                            transition.animateFloat(
-                                initialValue = 0.4f, targetValue = 0.8f,
-                                animationSpec = infiniteRepeatable(tween(350, easing = LinearEasing), RepeatMode.Reverse),
-                                label = "ob2"
-                            ),
-                            transition.animateFloat(
-                                initialValue = 0.1f, targetValue = 0.9f,
-                                animationSpec = infiniteRepeatable(tween(400, easing = LinearEasing), RepeatMode.Reverse),
-                                label = "ob3"
-                            )
-                        )
-                    } else {
-                        listOf(
-                            remember { mutableStateOf(0.3f) },
-                            remember { mutableStateOf(0.2f) },
-                            remember { mutableStateOf(0.3f) }
-                        )
-                    }
-                    heights.forEach { h ->
+                    val h1 = (bar1Height * equalizerPlayFactor).coerceIn(0f, 1f)
+                    val h2 = (bar2Height * equalizerPlayFactor).coerceIn(0f, 1f)
+                    val h3 = (bar3Height * equalizerPlayFactor).coerceIn(0f, 1f)
+                    val h4 = (bar4Height * equalizerPlayFactor).coerceIn(0f, 1f)
+
+                    listOf(h1, h2, h3, h4).forEach { heightFraction ->
                         Box(
                             modifier = Modifier
                                 .width(3.dp)
-                                .fillMaxHeight(h.value)
+                                .fillMaxHeight(heightFraction)
                                 .background(SpotifyGreen, shape = RoundedCornerShape(1.dp))
                         )
                     }
@@ -391,8 +473,12 @@ fun DynamicIslandOverlayContent(
                             .size(48.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .clickable {
-                                isExpanded = false
-                                onCollapse()
+                                if (islandMode == "AUTO") {
+                                    isExpanded = false
+                                    onCollapse()
+                                } else {
+                                    onOpenApp()
+                                }
                             }
                     ) {
                         AsyncImage(
