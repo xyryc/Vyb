@@ -307,6 +307,7 @@ class AudioPlayerManager(private val context: Context) {
         }
 
         _currentTrack.value = track
+        com.example.data.ListeningStatsManager.incrementPlayCount(context, track.id)
         _isBuffering.value = true
         _playbackPosition.value = 0L
         _playbackDuration.value = track.durationMs // Fallback duration initially
@@ -451,6 +452,9 @@ class AudioPlayerManager(private val context: Context) {
                         if (currentSecond != lastSyncedSecond) {
                             lastSyncedSecond = currentSecond
                             syncPositionToService()
+                            _currentTrack.value?.let { track ->
+                                com.example.data.ListeningStatsManager.recordListeningSecond(context, track)
+                            }
                         }
                     }
                 }

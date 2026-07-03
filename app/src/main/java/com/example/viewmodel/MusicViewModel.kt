@@ -13,6 +13,7 @@ sealed interface ScreenState {
     object Search : ScreenState
     object Library : ScreenState
     data class PlaylistDetail(val playlist: PlaylistEntity) : ScreenState
+    object Settings : ScreenState
 }
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
