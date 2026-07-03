@@ -47,6 +47,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.ui.theme.*
 import kotlinx.coroutines.*
 
@@ -131,16 +132,22 @@ class DynamicIslandOverlayService : Service(), LifecycleOwner, ViewModelStoreOwn
             }
 
             val density = resources.displayMetrics.density
+            val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+            val statusBarHeight = if (resourceId > 0) {
+                resources.getDimensionPixelSize(resourceId)
+            } else {
+                (24 * density).toInt()
+            }
             val params = WindowManager.LayoutParams().apply {
                 width = WindowManager.LayoutParams.WRAP_CONTENT
                 height = WindowManager.LayoutParams.WRAP_CONTENT
                 type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                 format = PixelFormat.TRANSLUCENT
                 gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                y = (12 * density).toInt()
+                // Modify this 'y' offset (in pixels) to shift the dynamic island up or down.
+                // Since FLAG_LAYOUT_IN_SCREEN is omitted, y = 0 aligns it right below the status bar.
+                y = (4 * density).toInt()
             }
 
             try {
@@ -157,15 +164,16 @@ class DynamicIslandOverlayService : Service(), LifecycleOwner, ViewModelStoreOwn
     }
 
     private fun hideOverlay() {
-        overlayView?.let { view ->
+        val view = overlayView ?: return
+        overlayView = null
+        view.post {
             try {
                 windowManager?.removeView(view)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            overlayView = null
+            stopSelf()
         }
-        stopSelf()
     }
 
     private fun startDismissTimer() {
@@ -184,12 +192,10 @@ class DynamicIslandOverlayService : Service(), LifecycleOwner, ViewModelStoreOwn
 
     private fun openApp() {
         try {
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            val launchIntent = Intent(this, com.example.MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
-            if (launchIntent != null) {
-                startActivity(launchIntent)
-            }
+            startActivity(launchIntent)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -222,6 +228,8 @@ fun DynamicIslandOverlayContent(
     val isBuffering by player.isBuffering.collectAsState()
 
     var isExpanded by remember { mutableStateOf(false) }
+    var sliderPosition by remember { mutableStateOf<Float?>(null) }
+    val displayPosition = sliderPosition ?: position.toFloat()
 
     val animatedWidth by animateDpAsState(
         targetValue = if (isExpanded) 340.dp else 190.dp,
@@ -229,7 +237,7 @@ fun DynamicIslandOverlayContent(
         label = "width"
     )
     val animatedHeight by animateDpAsState(
-        targetValue = if (isExpanded) 120.dp else 40.dp,
+        targetValue = if (isExpanded) 155.dp else 40.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "height"
     )
@@ -240,6 +248,14 @@ fun DynamicIslandOverlayContent(
     )
 
     val currentTrack = track ?: return
+
+    val context = LocalContext.current
+    val imageRequest = remember(currentTrack.coverUrl) {
+        ImageRequest.Builder(context)
+            .data(currentTrack.coverUrl)
+            .allowHardware(false)
+            .build()
+    }
 
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -280,7 +296,7 @@ fun DynamicIslandOverlayContent(
                         .clip(RoundedCornerShape(6.dp))
                 ) {
                     AsyncImage(
-                        model = currentTrack.coverUrl,
+                        model = imageRequest,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -363,7 +379,7 @@ fun DynamicIslandOverlayContent(
                             }
                     ) {
                         AsyncImage(
-                            model = currentTrack.coverUrl,
+                            model = imageRequest,
                             contentDescription = "Collapse Dynamic Island",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -414,7 +430,7 @@ fun DynamicIslandOverlayContent(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = com.example.formatDuration(position),
+                        text = com.example.formatDuration(displayPosition.toLong()),
                         fontSize = 10.sp,
                         color = SpotifyGrey,
                         modifier = Modifier.width(36.dp)
@@ -487,17 +503,32 @@ fun DynamicIslandOverlayContent(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                val progress = if (duration > 0) position.toFloat() / duration else 0f
-                LinearProgressIndicator(
-                    progress = progress.coerceIn(0f, 1f),
-                    color = SpotifyGreen,
-                    trackColor = SpotifySurfaceVariant,
+                Slider(
+                    value = displayPosition.coerceIn(0f, if (duration > 0) duration.toFloat() else 1f),
+                    onValueChange = { newPos ->
+                        sliderPosition = newPos
+                        onInteraction()
+                    },
+                    onValueChangeFinished = {
+                        sliderPosition?.let {
+                            player.seekTo(it.toLong())
+                        }
+                        sliderPosition = null
+                        onCollapse()
+                    },
+                    valueRange = 0f..(if (duration > 0) duration.toFloat() else 1f),
+                    colors = SliderDefaults.colors(
+                        thumbColor = SpotifyGreen,
+                        activeTrackColor = SpotifyGreen,
+                        inactiveTrackColor = SpotifySurfaceVariant,
+                        activeTickColor = Color.Transparent,
+                        inactiveTickColor = Color.Transparent
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(1.5.dp))
+                        .height(24.dp)
                 )
             }
         }

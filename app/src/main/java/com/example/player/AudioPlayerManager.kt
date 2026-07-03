@@ -194,10 +194,22 @@ class AudioPlayerManager(private val context: Context) {
                         putExtra("track_liked", track.isLiked)
                     }
                     try {
-                        if (android.os.Build.VERSION.SDK_INT >= 26) {
-                            context.startForegroundService(intent)
-                        } else {
+                        if (MediaPlaybackService.isServiceRunning) {
                             context.startService(intent)
+                        } else {
+                            if (playing) {
+                                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
+                            } else {
+                                try {
+                                    context.startService(intent)
+                                } catch (e: Exception) {
+                                    Log.e("AudioPlayerManager", "Failed to start background service when paused", e)
+                                }
+                            }
                         }
                     } catch (e: Exception) {
                         Log.e("AudioPlayerManager", "Failed to start MediaPlaybackService", e)

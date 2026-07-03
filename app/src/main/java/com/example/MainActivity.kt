@@ -75,6 +75,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        stopDynamicIsland()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        stopDynamicIsland()
+    }
+
+    private fun stopDynamicIsland() {
         try {
             stopService(Intent(this, com.example.player.DynamicIslandOverlayService::class.java))
         } catch (e: Exception) {
@@ -261,29 +270,7 @@ fun MainAppScreen() {
                     )
                 }
 
-                // Dynamic Island (Floating overlay at the top, visible if track is playing and player is not expanded)
-                if (currentTrack != null) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 8.dp, start = 16.dp, end = 16.dp)
-                    ) {
-                        DynamicIslandPlayer(
-                            track = currentTrack!!,
-                            isPlaying = isPlaying,
-                            position = playbackPosition,
-                            duration = playbackDuration,
-                            isBuffering = isBuffering,
-                            onPlayPauseClick = { viewModel.playerManager.togglePlayPause() },
-                            onLikeClick = { viewModel.toggleLike(currentTrack!!) },
-                            onSkipNextClick = { viewModel.playerManager.skipToNext() },
-                            onSkipPreviousClick = { viewModel.playerManager.skipToPrevious() },
-                            onClick = { viewModel.setPlayerExpanded(true) }
-                        )
-                    }
-                }
-
-                // Mini Player (Only visible if a track is selected and player is not expanded)
+                 // Mini Player (Only visible if a track is selected and player is not expanded)
                 if (currentTrack != null) {
                     Box(
                         modifier = Modifier

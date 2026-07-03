@@ -44,6 +44,9 @@ class MediaPlaybackService : Service() {
         var onNext: (() -> Unit)? = null
         var onSeekTo: ((Long) -> Unit)? = null
         var onLike: (() -> Unit)? = null
+
+        @Volatile
+        var isServiceRunning = false
     }
 
     private val noisyReceiver = object : android.content.BroadcastReceiver() {
@@ -56,6 +59,7 @@ class MediaPlaybackService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isServiceRunning = true
         createNotificationChannel()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -337,6 +341,7 @@ class MediaPlaybackService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isServiceRunning = false
         try {
             unregisterReceiver(noisyReceiver)
         } catch (e: Exception) {
