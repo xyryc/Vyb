@@ -24,6 +24,93 @@ class AudioPlayerManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var positionUpdateJob: Job? = null
 
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+    private var focusRequest: android.media.AudioFocusRequest? = null
+    private var playOnFocusGain = false
+    var onToggleLike: ((TrackEntity) -> Unit)? = null
+
+    private val audioFocusChangeListener = android.media.AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            android.media.AudioManager.AUDIOFOCUS_GAIN -> {
+                if (playOnFocusGain) {
+                    playOnFocusGain = false
+                    try {
+                        mediaPlayer?.start()
+                        _isPlaying.value = true
+                        startPositionUpdates()
+                    } catch (e: Exception) {
+                        Log.e("AudioPlayerManager", "Failed to start on focus gain", e)
+                    }
+                }
+                try {
+                    mediaPlayer?.setVolume(1.0f, 1.0f)
+                } catch (e: Exception) {
+                    Log.e("AudioPlayerManager", "Failed to restore volume", e)
+                }
+            }
+            android.media.AudioManager.AUDIOFOCUS_LOSS -> {
+                playOnFocusGain = false
+                if (_isPlaying.value) {
+                    togglePlayPause()
+                }
+            }
+            android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                if (_isPlaying.value) {
+                    playOnFocusGain = true
+                    togglePlayPause()
+                }
+            }
+            android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                try {
+                    mediaPlayer?.setVolume(0.2f, 0.2f)
+                } catch (e: Exception) {
+                    Log.e("AudioPlayerManager", "Failed to duck volume", e)
+                }
+            }
+        }
+    }
+
+    private fun requestAudioFocus(): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            val playbackAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            focusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(playbackAttributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                .build()
+            val result = audioManager.requestAudioFocus(focusRequest!!)
+            return result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            val result = audioManager.requestAudioFocus(
+                audioFocusChangeListener,
+                android.media.AudioManager.STREAM_MUSIC,
+                android.media.AudioManager.AUDIOFOCUS_GAIN
+            )
+            return result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            focusRequest?.let {
+                audioManager.abandonAudioFocusRequest(it)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(audioFocusChangeListener)
+        }
+    }
+
+    fun updateCurrentTrack(track: TrackEntity) {
+        if (_currentTrack.value?.id == track.id) {
+            _currentTrack.value = track
+        }
+    }
+
     private val _currentTrack = MutableStateFlow<TrackEntity?>(null)
     val currentTrack: StateFlow<TrackEntity?> = _currentTrack.asStateFlow()
 
@@ -76,6 +163,11 @@ class AudioPlayerManager(private val context: Context) {
         MediaPlaybackService.onSeekTo = { pos ->
             seekTo(pos)
         }
+        MediaPlaybackService.onLike = {
+            _currentTrack.value?.let { track ->
+                onToggleLike?.invoke(track)
+            }
+        }
     }
 
     private fun observePlaybackStateForNotification() {
@@ -92,6 +184,7 @@ class AudioPlayerManager(private val context: Context) {
                         putExtra("is_playing", playing)
                         putExtra("track_position", _playbackPosition.value)
                         putExtra("track_duration", duration)
+                        putExtra("track_liked", track.isLiked)
                     }
                     try {
                         if (android.os.Build.VERSION.SDK_INT >= 26) {
@@ -130,10 +223,14 @@ class AudioPlayerManager(private val context: Context) {
             )
             setOnPreparedListener { mp ->
                 _isBuffering.value = false
-                _isPlaying.value = true
-                _playbackDuration.value = mp.duration.toLong()
-                mp.start()
-                startPositionUpdates()
+                if (requestAudioFocus()) {
+                    _isPlaying.value = true
+                    _playbackDuration.value = mp.duration.toLong()
+                    mp.start()
+                    startPositionUpdates()
+                } else {
+                    _isPlaying.value = false
+                }
             }
             setOnCompletionListener {
                 _isPlaying.value = false
@@ -226,11 +323,14 @@ class AudioPlayerManager(private val context: Context) {
             player.pause()
             _isPlaying.value = false
             stopPositionUpdates()
+            abandonAudioFocus()
         } else {
             try {
-                player.start()
-                _isPlaying.value = true
-                startPositionUpdates()
+                if (requestAudioFocus()) {
+                    player.start()
+                    _isPlaying.value = true
+                    startPositionUpdates()
+                }
             } catch (e: Exception) {
                 Log.e("AudioPlayerManager", "Error resuming playback", e)
             }
@@ -261,6 +361,7 @@ class AudioPlayerManager(private val context: Context) {
             putExtra("is_playing", playing)
             putExtra("track_position", _playbackPosition.value)
             putExtra("track_duration", duration)
+            putExtra("track_liked", track.isLiked)
         }
         try {
             if (android.os.Build.VERSION.SDK_INT >= 26) {

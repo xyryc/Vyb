@@ -104,6 +104,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         prepopulateDatabaseIfNeeded()
+        playerManager.onToggleLike = { track ->
+            toggleLike(track)
+        }
     }
 
     fun importLocalMp3(uri: android.net.Uri) {
@@ -329,8 +332,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             
             // Sync with current playing track
             if (playerManager.currentTrack.value?.id == track.id) {
-                // We should make sure the current track in player manager reflects the new like state
-                // Since player manager is holding a reference, let's keep it in sync or let ViewModel hold it
+                playerManager.updateCurrentTrack(updated)
             }
         }
     }

@@ -36,17 +36,37 @@ class MediaPlaybackService : Service() {
         const val ACTION_PREVIOUS = "com.example.ACTION_PREVIOUS"
         const val ACTION_NEXT = "com.example.ACTION_NEXT"
         const val ACTION_STOP = "com.example.ACTION_STOP"
+        const val ACTION_LIKE = "com.example.ACTION_LIKE"
 
         var onPlay: (() -> Unit)? = null
         var onPause: (() -> Unit)? = null
         var onPrevious: (() -> Unit)? = null
         var onNext: (() -> Unit)? = null
         var onSeekTo: ((Long) -> Unit)? = null
+        var onLike: (() -> Unit)? = null
+    }
+
+    private val noisyReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                onPause?.invoke()
+            }
+        }
     }
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                noisyReceiver,
+                android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            registerReceiver(noisyReceiver, android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY))
+        }
 
         mediaSession = MediaSession(this, "MusicPlayerSession").apply {
             isActive = true
@@ -81,6 +101,7 @@ class MediaPlaybackService : Service() {
             ACTION_PAUSE -> onPause?.invoke()
             ACTION_PREVIOUS -> onPrevious?.invoke()
             ACTION_NEXT -> onNext?.invoke()
+            ACTION_LIKE -> onLike?.invoke()
             ACTION_STOP -> {
                 stopForegroundService()
                 return START_NOT_STICKY
@@ -95,8 +116,9 @@ class MediaPlaybackService : Service() {
             val isPlaying = intent?.getBooleanExtra("is_playing", false) ?: false
             val position = intent?.getLongExtra("track_position", 0L) ?: 0L
             val duration = intent?.getLongExtra("track_duration", 0L) ?: 0L
+            val isLiked = intent?.getBooleanExtra("track_liked", false) ?: false
 
-            updateMediaSessionAndNotification(title, artist, artworkUrl, isPlaying, position, duration)
+            updateMediaSessionAndNotification(title, artist, artworkUrl, isPlaying, position, duration, isLiked)
         }
 
         return START_STICKY
@@ -108,7 +130,8 @@ class MediaPlaybackService : Service() {
         artworkUrl: String,
         isPlaying: Boolean,
         position: Long,
-        duration: Long
+        duration: Long,
+        isLiked: Boolean
     ) {
         val stateBuilder = PlaybackState.Builder()
             .setActions(
@@ -137,10 +160,10 @@ class MediaPlaybackService : Service() {
             serviceScope.launch {
                 val bitmap = loadBitmapFromUrl(artworkUrl)
                 lastArtworkBitmap = bitmap
-                showNotification(title, artist, isPlaying, bitmap)
+                showNotification(title, artist, isPlaying, bitmap, isLiked)
             }
         } else {
-            showNotification(title, artist, isPlaying, lastArtworkBitmap)
+            showNotification(title, artist, isPlaying, lastArtworkBitmap, isLiked)
         }
     }
 
@@ -166,7 +189,8 @@ class MediaPlaybackService : Service() {
         title: String,
         artist: String,
         isPlaying: Boolean,
-        artwork: Bitmap?
+        artwork: Bitmap?,
+        isLiked: Boolean
     ) {
         val playPauseIntent = Intent(this, MediaPlaybackService::class.java).apply {
             action = if (isPlaying) ACTION_PAUSE else ACTION_PLAY
@@ -195,6 +219,16 @@ class MediaPlaybackService : Service() {
             this,
             3,
             nextIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val likeIntent = Intent(this, MediaPlaybackService::class.java).apply {
+            action = ACTION_LIKE
+        }
+        val likePendingIntent = PendingIntent.getService(
+            this,
+            4,
+            likeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -246,17 +280,34 @@ class MediaPlaybackService : Service() {
                     nextPendingIntent
                 ).build()
             )
+            .addAction(
+                Notification.Action.Builder(
+                    if (isLiked) android.R.drawable.star_on else android.R.drawable.star_off,
+                    if (isLiked) "Unlike" else "Like",
+                    likePendingIntent
+                ).build()
+            )
 
         val notification = notificationBuilder.build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID, 
-                notification, 
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
+        if (isPlaying) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID, 
+                    notification, 
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
         } else {
-            startForeground(NOTIFICATION_ID, notification)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(false)
+            } else {
+                stopForeground(false)
+            }
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(NOTIFICATION_ID, notification)
         }
     }
 
@@ -286,6 +337,11 @@ class MediaPlaybackService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try {
+            unregisterReceiver(noisyReceiver)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         serviceScope.cancel()
         mediaSession?.release()
         mediaSession = null
