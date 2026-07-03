@@ -441,10 +441,17 @@ class AudioPlayerManager(private val context: Context) {
     private fun startPositionUpdates() {
         positionUpdateJob?.cancel()
         positionUpdateJob = scope.launch {
+            var lastSyncedSecond = -1L
             while (isActive) {
                 mediaPlayer?.let { mp ->
                     if (mp.isPlaying) {
-                        _playbackPosition.value = mp.currentPosition.toLong()
+                        val currentPos = mp.currentPosition.toLong()
+                        _playbackPosition.value = currentPos
+                        val currentSecond = currentPos / 1000
+                        if (currentSecond != lastSyncedSecond) {
+                            lastSyncedSecond = currentSecond
+                            syncPositionToService()
+                        }
                     }
                 }
                 delay(250)

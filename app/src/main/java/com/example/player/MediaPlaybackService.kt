@@ -26,6 +26,10 @@ class MediaPlaybackService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var lastArtworkUrl: String? = null
     private var lastArtworkBitmap: Bitmap? = null
+    private var lastTitle: String? = null
+    private var lastArtist: String? = null
+    private var lastDuration: Long = -1L
+    private var defaultLargeIcon: Bitmap? = null
 
     companion object {
         const val CHANNEL_ID = "music_player_channel"
@@ -61,6 +65,11 @@ class MediaPlaybackService : Service() {
         super.onCreate()
         isServiceRunning = true
         createNotificationChannel()
+        try {
+            defaultLargeIcon = BitmapFactory.decodeResource(resources, android.R.drawable.ic_media_play)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(
@@ -128,6 +137,33 @@ class MediaPlaybackService : Service() {
         return START_STICKY
     }
 
+    private fun updateSessionMetadata(
+        title: String,
+        artist: String,
+        artwork: Bitmap?,
+        duration: Long
+    ) {
+        if (lastTitle == title && lastArtist == artist && lastDuration == duration && lastArtworkBitmap == artwork) {
+            return
+        }
+        lastTitle = title
+        lastArtist = artist
+        lastDuration = duration
+        lastArtworkBitmap = artwork
+
+        val metadataBuilder = MediaMetadata.Builder()
+            .putString(MediaMetadata.METADATA_KEY_TITLE, title)
+            .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
+            .putLong(MediaMetadata.METADATA_KEY_DURATION, duration)
+
+        if (artwork != null) {
+            metadataBuilder.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, artwork)
+            metadataBuilder.putBitmap(MediaMetadata.METADATA_KEY_ART, artwork)
+        }
+
+        mediaSession?.setMetadata(metadataBuilder.build())
+    }
+
     private fun updateMediaSessionAndNotification(
         title: String,
         artist: String,
@@ -148,26 +184,22 @@ class MediaPlaybackService : Service() {
             .setState(
                 if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
                 position,
-                1.0f
+                if (isPlaying) 1.0f else 0.0f
             )
         mediaSession?.setPlaybackState(stateBuilder.build())
 
-        val metadataBuilder = MediaMetadata.Builder()
-            .putString(MediaMetadata.METADATA_KEY_TITLE, title)
-            .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
-            .putLong(MediaMetadata.METADATA_KEY_DURATION, duration)
-        
-        mediaSession?.setMetadata(metadataBuilder.build())
+        updateSessionMetadata(title, artist, lastArtworkBitmap, duration)
 
         if (artworkUrl.isNotEmpty() && artworkUrl != lastArtworkUrl) {
             lastArtworkUrl = artworkUrl
             serviceScope.launch {
                 val bitmap = loadBitmapFromUrl(artworkUrl)
                 lastArtworkBitmap = bitmap
-                showNotification(title, artist, isPlaying, bitmap, isLiked)
+                updateSessionMetadata(title, artist, bitmap, duration)
+                showNotification(title, artist, isPlaying, bitmap, isLiked, position, duration)
             }
         } else {
-            showNotification(title, artist, isPlaying, lastArtworkBitmap, isLiked)
+            showNotification(title, artist, isPlaying, lastArtworkBitmap, isLiked, position, duration)
         }
     }
 
@@ -189,12 +221,21 @@ class MediaPlaybackService : Service() {
         }
     }
 
+    private fun formatDuration(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format("%02d:%02d", minutes, seconds)
+    }
+
     private fun showNotification(
         title: String,
         artist: String,
         isPlaying: Boolean,
         artwork: Bitmap?,
-        isLiked: Boolean
+        isLiked: Boolean,
+        position: Long,
+        duration: Long
     ) {
         val playPauseIntent = Intent(this, MediaPlaybackService::class.java).apply {
             action = if (isPlaying) ACTION_PAUSE else ACTION_PLAY
@@ -254,7 +295,8 @@ class MediaPlaybackService : Service() {
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(title)
             .setContentText(artist)
-            .setLargeIcon(artwork ?: BitmapFactory.decodeResource(resources, android.R.drawable.ic_media_play))
+            .setSubText("${formatDuration(position)} / ${formatDuration(duration)}")
+            .setLargeIcon(artwork ?: defaultLargeIcon)
             .setContentIntent(openAppPendingIntent)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(isPlaying)

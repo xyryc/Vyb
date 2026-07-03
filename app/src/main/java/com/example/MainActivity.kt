@@ -1529,9 +1529,24 @@ fun ExpandedPlayerScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Progress Slider
+            var isDragging by remember { mutableStateOf(false) }
+            var dragValue by remember { mutableStateOf(0f) }
+            val displayPosition = if (isDragging) {
+                (dragValue * duration).toLong()
+            } else {
+                position
+            }
+
             Slider(
-                value = if (duration > 0) position.toFloat() / duration else 0f,
-                onValueChange = { onSeek((it * duration).toLong()) },
+                value = if (isDragging) dragValue else (if (duration > 0) position.toFloat() / duration else 0f),
+                onValueChange = {
+                    isDragging = true
+                    dragValue = it
+                },
+                onValueChangeFinished = {
+                    isDragging = false
+                    onSeek((dragValue * duration).toLong())
+                },
                 colors = SliderDefaults.colors(
                     activeTrackColor = SpotifyGreen,
                     inactiveTrackColor = SpotifySurfaceVariant,
@@ -1547,7 +1562,7 @@ fun ExpandedPlayerScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(formatDuration(position), color = SpotifyGrey, fontSize = 12.sp)
+                Text(formatDuration(displayPosition), color = SpotifyGrey, fontSize = 12.sp)
                 Text(formatDuration(duration), color = SpotifyGrey, fontSize = 12.sp)
             }
 
