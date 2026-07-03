@@ -42,6 +42,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import android.graphics.drawable.BitmapDrawable
+import androidx.palette.graphics.Palette
 import com.example.data.PlaylistEntity
 import com.example.data.TrackEntity
 import com.example.ui.theme.MyApplicationTheme
@@ -165,15 +170,79 @@ fun MainAppScreen() {
     val isShuffleEnabled by viewModel.playerManager.isShuffleEnabled.collectAsState()
     val isRepeatEnabled by viewModel.playerManager.isRepeatEnabled.collectAsState()
 
+    // Dynamic Gradient Background states
+    var dominantColor by remember { mutableStateOf(SpotifyBlack) }
+    var secondaryColor by remember { mutableStateOf(SpotifyBlack) }
+
+    LaunchedEffect(currentTrack?.coverUrl) {
+        val coverUrl = currentTrack?.coverUrl
+        if (!coverUrl.isNullOrEmpty()) {
+            try {
+                val loader = context.imageLoader
+                val request = ImageRequest.Builder(context)
+                    .data(coverUrl)
+                    .allowHardware(false) // Required for Palette to extract pixels
+                    .build()
+                val result = loader.execute(request)
+                if (result is SuccessResult) {
+                    val drawable = result.drawable
+                    if (drawable is BitmapDrawable) {
+                        val bitmap = drawable.bitmap
+                        Palette.from(bitmap).generate { palette ->
+                            val dom = palette?.getDominantColor(android.graphics.Color.BLACK) ?: android.graphics.Color.BLACK
+                            val vibrant = palette?.getVibrantColor(android.graphics.Color.BLACK) ?: dom
+                            val darkMuted = palette?.getDarkMutedColor(android.graphics.Color.BLACK) ?: android.graphics.Color.BLACK
+                            
+                            dominantColor = Color(vibrant)
+                            secondaryColor = Color(darkMuted)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                dominantColor = SpotifyBlack
+                secondaryColor = SpotifyBlack
+            }
+        } else {
+            dominantColor = SpotifyBlack
+            secondaryColor = SpotifyBlack
+        }
+    }
+
+    val animatedDominantColor by animateColorAsState(
+        targetValue = dominantColor,
+        animationSpec = tween(durationMillis = 1000)
+    )
+    val animatedSecondaryColor by animateColorAsState(
+        targetValue = secondaryColor,
+        animationSpec = tween(durationMillis = 1000)
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(SpotifyBlack)
     ) {
+        // Dynamic Backdrop Gradient
+        if (currentTrack != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                animatedDominantColor.copy(alpha = 0.45f),
+                                animatedSecondaryColor.copy(alpha = 0.15f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+        }
+
         Scaffold(
             bottomBar = {
                 NavigationBar(
-                    containerColor = SpotifyBlack,
+                    containerColor = SpotifyBlack.copy(alpha = 0.85f),
                     modifier = Modifier.testTag("bottom_nav")
                 ) {
                     NavigationBarItem(
@@ -217,7 +286,7 @@ fun MainAppScreen() {
                     )
                 }
             },
-            containerColor = SpotifyBlack,
+            containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets.safeDrawing
         ) { innerPadding ->
             Box(
@@ -327,7 +396,9 @@ fun MainAppScreen() {
                     onRepeatClick = { viewModel.playerManager.toggleRepeat() },
                     onLikeClick = { viewModel.toggleLike(currentTrack!!) },
                     onAddToPlaylistClick = { viewModel.showAddToPlaylistDialog(currentTrack) },
-                    onCollapse = { viewModel.setPlayerExpanded(false) }
+                    onCollapse = { viewModel.setPlayerExpanded(false) },
+                    dominantColor = animatedDominantColor,
+                    secondaryColor = animatedSecondaryColor
                 )
             }
         }
@@ -1417,7 +1488,9 @@ fun ExpandedPlayerScreen(
     onRepeatClick: () -> Unit,
     onLikeClick: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
-    onCollapse: () -> Unit
+    onCollapse: () -> Unit,
+    dominantColor: Color = SpotifySurface,
+    secondaryColor: Color = SpotifyBlack
 ) {
     Box(
         modifier = Modifier
@@ -1425,7 +1498,8 @@ fun ExpandedPlayerScreen(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        SpotifySurface,
+                        dominantColor,
+                        secondaryColor,
                         SpotifyBlack
                     )
                 )
