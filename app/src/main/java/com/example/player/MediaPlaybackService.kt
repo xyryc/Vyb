@@ -59,6 +59,9 @@ class MediaPlaybackService : Service() {
 
         @Volatile
         var isServiceRunning = false
+
+        @Volatile
+        var isForeground = false
     }
 
     private val noisyReceiver = object : android.content.BroadcastReceiver() {
@@ -343,24 +346,42 @@ class MediaPlaybackService : Service() {
             )
 
         val notification = notificationBuilder.build()
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (isPlaying) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    NOTIFICATION_ID, 
-                    notification, 
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                )
+            if (!isForeground) {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(
+                            NOTIFICATION_ID, 
+                            notification, 
+                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                        )
+                    } else {
+                        startForeground(NOTIFICATION_ID, notification)
+                    }
+                    isForeground = true
+                } catch (e: Exception) {
+                    android.util.Log.e("MediaPlaybackService", "Failed to startForeground", e)
+                    manager.notify(NOTIFICATION_ID, notification)
+                }
             } else {
-                startForeground(NOTIFICATION_ID, notification)
+                manager.notify(NOTIFICATION_ID, notification)
             }
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(false)
-            } else {
-                stopForeground(false)
+            if (isForeground) {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        stopForeground(false)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        stopForeground(false)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                isForeground = false
             }
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.notify(NOTIFICATION_ID, notification)
         }
     }
@@ -369,8 +390,10 @@ class MediaPlaybackService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
+            @Suppress("DEPRECATION")
             stopForeground(true)
         }
+        isForeground = false
         stopSelf()
     }
 
@@ -392,6 +415,7 @@ class MediaPlaybackService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isServiceRunning = false
+        isForeground = false
         try {
             unregisterReceiver(noisyReceiver)
         } catch (e: Exception) {
@@ -406,10 +430,12 @@ class MediaPlaybackService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         isServiceRunning = false
+        isForeground = false
         mediaSession?.isActive = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
+            @Suppress("DEPRECATION")
             stopForeground(true)
         }
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

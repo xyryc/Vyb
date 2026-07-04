@@ -219,7 +219,7 @@ class AudioPlayerManager(private val context: Context) {
                         putExtra("track_liked", track.isLiked)
                     }
                     try {
-                        if (MediaPlaybackService.isServiceRunning) {
+                        if (MediaPlaybackService.isForeground) {
                             context.startService(intent)
                         } else {
                             if (playing) {
@@ -430,10 +430,14 @@ class AudioPlayerManager(private val context: Context) {
             putExtra("track_liked", track.isLiked)
         }
         try {
-            if (android.os.Build.VERSION.SDK_INT >= 26) {
-                context.startForegroundService(intent)
-            } else {
+            if (MediaPlaybackService.isForeground) {
                 context.startService(intent)
+            } else {
+                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
             }
         } catch (e: Exception) {
             Log.e("AudioPlayerManager", "Failed to sync MediaPlaybackService position", e)

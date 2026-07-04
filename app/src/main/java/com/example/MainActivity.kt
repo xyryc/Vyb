@@ -59,6 +59,13 @@ import androidx.palette.graphics.Palette
 import com.example.data.PlaylistEntity
 import com.example.data.TrackEntity
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.ThemeAccent
+import com.example.player.LyricsUiState
+import com.example.player.LyricsService
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.ripple.rememberRipple
 import com.example.ui.theme.SpotifyBlack
 import com.example.ui.theme.SpotifyGrey
 import com.example.ui.theme.SpotifySurface
@@ -217,6 +224,8 @@ fun MainAppScreen(
     val showCreatePlaylistDialog by viewModel.showCreatePlaylistDialog.collectAsState()
     val showAddToPlaylistDialog by viewModel.showAddToPlaylistDialog.collectAsState()
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
+    val lyricsUiState by viewModel.lyricsUiState.collectAsState()
+    val themeAccent by viewModel.currentThemeAccent.collectAsState()
 
     // Player states
     val currentTrack by viewModel.playerManager.currentTrack.collectAsState()
@@ -485,6 +494,8 @@ fun MainAppScreen(
                     isShuffleEnabled = isShuffleEnabled,
                     isRepeatEnabled = isRepeatEnabled,
                     playlists = playlists,
+                    lyricsState = lyricsUiState,
+                    themeAccent = themeAccent,
                     onSeek = { viewModel.playerManager.seekTo(it) },
                     onPlayPauseClick = { viewModel.playerManager.togglePlayPause() },
                     onPreviousClick = { viewModel.playerManager.skipToPrevious() },
@@ -2186,6 +2197,8 @@ fun ExpandedPlayerScreen(
     isShuffleEnabled: Boolean,
     isRepeatEnabled: Boolean,
     playlists: List<PlaylistEntity>,
+    lyricsState: LyricsUiState,
+    themeAccent: ThemeAccent,
     onSeek: (Long) -> Unit,
     onPlayPauseClick: () -> Unit,
     onPreviousClick: () -> Unit,
@@ -2200,6 +2213,7 @@ fun ExpandedPlayerScreen(
     secondaryColor: Color = SpotifyBlack
 ) {
     var showVisualizer by remember { mutableStateOf(false) }
+    var showLyrics by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -2251,12 +2265,28 @@ fun ExpandedPlayerScreen(
                 )
 
                 Row(
-                    modifier = Modifier.weight(1.2f),
+                    modifier = Modifier.weight(1.5f),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = { showVisualizer = !showVisualizer },
+                        onClick = { 
+                            showLyrics = !showLyrics
+                            if (showLyrics) showVisualizer = false
+                        },
+                        modifier = Modifier.testTag("player_lyrics_toggle_btn")
+                    ) {
+                        Icon(
+                            imageVector = if (showLyrics) Icons.Filled.Lyrics else Icons.Outlined.Lyrics,
+                            contentDescription = "Toggle Lyrics",
+                            tint = if (showLyrics) themeAccent.color else SpotifyWhite
+                        )
+                    }
+                    IconButton(
+                        onClick = { 
+                            showVisualizer = !showVisualizer 
+                            if (showVisualizer) showLyrics = false
+                        },
                         modifier = Modifier.testTag("player_visualizer_toggle_btn")
                     ) {
                         Icon(
@@ -2282,7 +2312,7 @@ fun ExpandedPlayerScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Giant Cover Art / Fluid Visualizer
+            // Giant Cover Art / Fluid Visualizer / Live Lyrics
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2290,7 +2320,15 @@ fun ExpandedPlayerScreen(
                     .testTag("player_center_art_area"),
                 contentAlignment = Alignment.Center
             ) {
-                if (showVisualizer) {
+                if (showLyrics) {
+                    LyricsPanel(
+                        lyricsState = lyricsState,
+                        position = position,
+                        onLineClick = onSeek,
+                        accentColor = themeAccent.color,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else if (showVisualizer) {
                     com.example.player.FluidVisualizer(
                         track = track,
                         isPlaying = isPlaying,
@@ -2302,7 +2340,7 @@ fun ExpandedPlayerScreen(
                             .size(320.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .shadow(8.dp)
-                            .clickable { showVisualizer = true }
+                            .clickable { showLyrics = true }
                             .testTag("player_album_art_container")
                     ) {
                         TrackCoverImage(
@@ -4509,4 +4547,155 @@ fun EqualizerDialog(
             }
         }
     )
+}
+
+@Composable
+fun LyricsPanel(
+    lyricsState: LyricsUiState,
+    position: Long,
+    onLineClick: (Long) -> Unit,
+    accentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(SpotifyBlack.copy(alpha = 0.55f))
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        when (lyricsState) {
+            is LyricsUiState.Idle -> {
+                Text(
+                    text = "No track playing",
+                    color = SpotifyGrey,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            is LyricsUiState.Loading -> {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = accentColor,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Searching lyrics online...",
+                        color = SpotifyGrey,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            is LyricsUiState.Error -> {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Subtitles,
+                        contentDescription = "No lyrics found",
+                        tint = SpotifyGrey,
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = lyricsState.message,
+                        color = SpotifyGrey,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+            is LyricsUiState.Success -> {
+                if (lyricsState.isSynced && lyricsState.syncedLines.isNotEmpty()) {
+                    val syncedLines = lyricsState.syncedLines
+                    // Find the line that is active
+                    val activeLineIndex = syncedLines.indexOfLast { position >= it.timeMs }
+                    val listState = rememberLazyListState()
+
+                    // Automatically scroll to active line
+                    LaunchedEffect(activeLineIndex) {
+                        if (activeLineIndex >= 0) {
+                            listState.animateScrollToItem(
+                                index = activeLineIndex,
+                                scrollOffset = -120 // Centers the active line beautifully
+                            )
+                        }
+                    }
+
+                    LazyColumn(
+                        state = listState,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        itemsIndexed(syncedLines) { index, line ->
+                            val isActive = index == activeLineIndex
+                            val isPast = index < activeLineIndex
+                            
+                            val textColor = when {
+                                isActive -> Color.White
+                                isPast -> SpotifyWhite.copy(alpha = 0.5f)
+                                else -> SpotifyWhite.copy(alpha = 0.25f)
+                            }
+                            
+                            val fontSize = if (isActive) 18.sp else 15.sp
+                            val fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold
+                            
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onLineClick(line.timeMs) }
+                                    .padding(vertical = 4.dp)
+                                    .testTag("lyric_line_$index")
+                            ) {
+                                Text(
+                                    text = line.text,
+                                    color = textColor,
+                                    fontSize = fontSize,
+                                    fontWeight = fontWeight,
+                                    lineHeight = 24.sp,
+                                    modifier = Modifier.animateContentSize()
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Plain lyrics
+                    val plainText = lyricsState.plainLyrics ?: "No text content available"
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        item {
+                            Text(
+                                text = "Plain Text Lyrics (Not Synced)",
+                                color = accentColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                        item {
+                            Text(
+                                text = plainText,
+                                color = SpotifyWhite.copy(alpha = 0.85f),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 24.sp,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

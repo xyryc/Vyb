@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import com.example.player.AudioPlayerManager
+import com.example.player.LyricsUiState
+import com.example.player.LyricsService
 import com.example.ui.theme.ThemeAccent
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -79,6 +81,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     )
     val currentThemeAccent: StateFlow<ThemeAccent> = _currentThemeAccent.asStateFlow()
 
+    private val _lyricsUiState = MutableStateFlow<LyricsUiState>(LyricsUiState.Idle)
+    val lyricsUiState: StateFlow<LyricsUiState> = _lyricsUiState.asStateFlow()
+
+    fun loadLyricsForTrack(track: TrackEntity) {
+        viewModelScope.launch {
+            _lyricsUiState.value = LyricsUiState.Loading
+            val state = LyricsService.fetchLyrics(track)
+            _lyricsUiState.value = state
+        }
+    }
+
     fun setThemeAccent(accent: ThemeAccent) {
         _currentThemeAccent.value = accent
         sharedPrefs.edit().putString("theme_accent", accent.name).apply()
@@ -132,6 +145,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         prepopulateDatabaseIfNeeded()
         playerManager.onToggleLike = { track ->
             toggleLike(track)
+        }
+
+        // Observe track changes to fetch lyrics automatically
+        viewModelScope.launch {
+            playerManager.currentTrack.collect { track ->
+                if (track != null) {
+                    loadLyricsForTrack(track)
+                } else {
+                    _lyricsUiState.value = LyricsUiState.Idle
+                }
+            }
         }
     }
 

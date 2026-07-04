@@ -24,6 +24,10 @@ Below are the screenshots showcasing the application's beautiful visual design, 
   - **Background Transparency**: Features a dynamic opacity slider ranging from 30% to 100% to control focus and visibility.
   - **System Overlay Integration**: Safe permission check with automated setup guides.
 - 📊 **Fluid Live Audio Equalizer Waveform**: An animated, 4-bar reactive visualizer built directly into the Compact Pill state of the Dynamic Island. Bars oscillate and dance in real-time when music plays, matching the active brand accent color, and flatten gracefully when paused.
+- 🎛️ **High-Fidelity 5-Band Equalizer & Spatial Effects**:
+  - **Interactive Vertical EQ Sliders**: Custom-built vertical sliders representing different frequency bands (60Hz, 230Hz, 910Hz, 4kHz, 14kHz) with center (0dB) notch reference lines, smooth high-precision tap & drag gesture detection, and dynamic color progress tracking.
+  - **Tactile Rotary Knobs**: Modern rotary knobs custom-drawn on Canvas with rotating pointer indicators and outer glow boundaries for smooth physical control of **Deep Bass Boost** and **Spatial 3D Surround** depth.
+  - **Acoustic Presets**: Quick tap-to-apply preset configurations (like Normal, Classical, Dance, Flat, Folk, Heavy Metal, Hip Hop, Jazz, Pop, Rock) that automatically adjust frequency bands and update the visual sliders.
 - ⏱️ **Interactive Sleep Timer**: Set a time limit for your session using a custom slider (1 to 120 minutes). Features a monospace visual active countdown (`MM:SS`) with a depleting progress bar and convenient quick-extension triggers (`+5m`, `+10m`, `+15m`).
 - 📈 **Smart Insights & Statistics Dashboard**: Full-featured local analytics tracker parsing your total listening time (seconds), top genres, top artists, and top-played tracks based on real-time activity.
 - 📂 **Intelligent Local Folder Importing & Auto-Grouping**: 
