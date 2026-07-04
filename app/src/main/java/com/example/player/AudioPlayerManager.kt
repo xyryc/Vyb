@@ -335,6 +335,25 @@ class AudioPlayerManager(private val context: Context) {
 
         _currentTrack.value = track
         com.example.data.ListeningStatsManager.incrementPlayCount(context, track.id)
+        
+        // Update play count and last played timestamp in Room database
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val db = com.example.data.AppDatabase.getDatabase(context)
+                val trackDao = db.trackDao()
+                val existingTrack = trackDao.getTrackById(track.id)
+                if (existingTrack != null) {
+                    val updated = existingTrack.copy(
+                        playCount = existingTrack.playCount + 1,
+                        lastPlayedTimestamp = System.currentTimeMillis()
+                    )
+                    trackDao.updateTrack(updated)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         _isBuffering.value = true
         _playbackPosition.value = 0L
         _playbackDuration.value = track.durationMs // Fallback duration initially

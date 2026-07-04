@@ -500,8 +500,69 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadPlaylistTracks(playlistId: Int) {
         viewModelScope.launch {
-            repository.getTracksForPlaylist(playlistId).collect { tracks ->
-                _selectedPlaylistTracks.value = tracks
+            if (playlistId < 0) {
+                repository.allTracks.collect { allTracks ->
+                    val smartTracks = when (playlistId) {
+                        -1 -> {
+                            // Heavy Rotation: Sort descending by playCount
+                            val context = getApplication<Application>()
+                            val played = allTracks.filter { track ->
+                                val count = maxOf(track.playCount, ListeningStatsManager.getTrackPlayCount(context, track.id))
+                                count > 0
+                            }.sortedByDescending { track ->
+                                maxOf(track.playCount, ListeningStatsManager.getTrackPlayCount(context, track.id))
+                            }.take(20)
+                            
+                            if (played.isEmpty()) {
+                                // Fallback: default top tracks on fresh install
+                                allTracks.take(4)
+                            } else {
+                                played
+                            }
+                        }
+                        -2 -> {
+                            // Forgotten Favorites: Liked or high plays (>=4), not played in last 2 weeks (or never played)
+                            val twoWeeksAgo = System.currentTimeMillis() - 14 * 24 * 60 * 60 * 1000L
+                            val context = getApplication<Application>()
+                            val favorites = allTracks.filter { track ->
+                                val count = maxOf(track.playCount, ListeningStatsManager.getTrackPlayCount(context, track.id))
+                                val isHighRated = track.isLiked || count >= 4
+                                val notPlayedRecently = track.lastPlayedTimestamp < twoWeeksAgo || (track.lastPlayedTimestamp == 0L && count == 0)
+                                isHighRated && notPlayedRecently
+                            }
+                            if (favorites.isEmpty()) {
+                                // Fallback: liked tracks, or first few if no likes
+                                val liked = allTracks.filter { it.isLiked }
+                                if (liked.isEmpty()) allTracks.take(3) else liked
+                            } else {
+                                favorites
+                            }
+                        }
+                        -3 -> {
+                            // Time of Day Mixes: suggests dynamic genres depending on the clock
+                            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                            val matchingGenres = when (hour) {
+                                in 6..11 -> listOf("Acoustic", "Lofi", "Ambient")
+                                in 12..17 -> listOf("Electronic", "Techno", "Synthwave", "Rock")
+                                else -> listOf("Vaporwave", "Ambient", "Lofi")
+                            }
+                            val filtered = allTracks.filter { track ->
+                                matchingGenres.any { genre -> track.genre.equals(genre, ignoreCase = true) }
+                            }
+                            if (filtered.isEmpty()) {
+                                allTracks.take(4)
+                            } else {
+                                filtered
+                            }
+                        }
+                        else -> emptyList()
+                    }
+                    _selectedPlaylistTracks.value = smartTracks
+                }
+            } else {
+                repository.getTracksForPlaylist(playlistId).collect { tracks ->
+                    _selectedPlaylistTracks.value = tracks
+                }
             }
         }
     }
@@ -523,32 +584,38 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deletePlaylist(playlistId: Int) {
         viewModelScope.launch {
-            repository.deletePlaylist(playlistId)
+            if (playlistId >= 0) {
+                repository.deletePlaylist(playlistId)
+            }
             _currentScreen.value = ScreenState.Library
         }
     }
 
     fun addTrackToPlaylist(playlistId: Int, trackId: String) {
         viewModelScope.launch {
-            repository.addTrackToPlaylist(playlistId, trackId)
-            _showAddToPlaylistDialog.value = null
-            
-            // Reload tracks if viewing the playlist currently
-            val screen = _currentScreen.value
-            if (screen is ScreenState.PlaylistDetail && screen.playlist.id == playlistId) {
-                loadPlaylistTracks(playlistId)
+            if (playlistId >= 0) {
+                repository.addTrackToPlaylist(playlistId, trackId)
+                _showAddToPlaylistDialog.value = null
+                
+                // Reload tracks if viewing the playlist currently
+                val screen = _currentScreen.value
+                if (screen is ScreenState.PlaylistDetail && screen.playlist.id == playlistId) {
+                    loadPlaylistTracks(playlistId)
+                }
             }
         }
     }
 
     fun removeTrackFromPlaylist(playlistId: Int, trackId: String) {
         viewModelScope.launch {
-            repository.removeTrackFromPlaylist(playlistId, trackId)
-            
-            // Reload tracks if viewing the playlist currently
-            val screen = _currentScreen.value
-            if (screen is ScreenState.PlaylistDetail && screen.playlist.id == playlistId) {
-                loadPlaylistTracks(playlistId)
+            if (playlistId >= 0) {
+                repository.removeTrackFromPlaylist(playlistId, trackId)
+                
+                // Reload tracks if viewing the playlist currently
+                val screen = _currentScreen.value
+                if (screen is ScreenState.PlaylistDetail && screen.playlist.id == playlistId) {
+                    loadPlaylistTracks(playlistId)
+                }
             }
         }
     }

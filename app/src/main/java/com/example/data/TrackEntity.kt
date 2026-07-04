@@ -16,5 +16,6 @@ data class TrackEntity(
     val genre: String = "Unknown",
     val playCount: Int = 0,
     val folderName: String = "",
-    val importDate: Long = 0L
+    val importDate: Long = 0L,
+    val lastPlayedTimestamp: Long = 0L
 )

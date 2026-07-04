@@ -341,6 +341,7 @@ fun MainAppScreen(
                     is ScreenState.Home -> HomeScreen(
                         tracks = allTracks,
                         onTrackClick = { track -> viewModel.playTrack(track, allTracks) },
+                        onPlaylistClick = { viewModel.navigateTo(ScreenState.PlaylistDetail(it)) },
                         currentTrack = currentTrack,
                         isPlaying = isPlaying,
                         onLikeClick = { viewModel.toggleLike(it) }
@@ -497,6 +498,7 @@ fun TrackCoverImage(
 fun HomeScreen(
     tracks: List<TrackEntity>,
     onTrackClick: (TrackEntity) -> Unit,
+    onPlaylistClick: (PlaylistEntity) -> Unit,
     currentTrack: TrackEntity?,
     isPlaying: Boolean,
     onLikeClick: (TrackEntity) -> Unit
@@ -566,6 +568,33 @@ fun HomeScreen(
             }
         }
 
+        // Made For You: AI Smart Mixes
+        item {
+            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+                Text(
+                    text = "Made For You",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SpotifyWhite,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    getSmartMixes().forEach { mix ->
+                        SmartMixCard(
+                            playlist = mix,
+                            onClick = { onPlaylistClick(mix) }
+                        )
+                    }
+                }
+            }
+        }
+
         // Featured Songs list
         item {
             Text(
@@ -585,6 +614,139 @@ fun HomeScreen(
                 onClick = { onTrackClick(track) },
                 onLikeClick = { onLikeClick(track) }
             )
+        }
+    }
+}
+
+fun getSmartMixes(): List<PlaylistEntity> {
+    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    val (timeName, timeDesc) = when (hour) {
+        in 6..11 -> Pair("Morning Acoustic & Chill", "Gentle acoustic strings and lofi vibes to start your day.")
+        in 12..17 -> Pair("Afternoon Energy Mix", "High-tempo Synthwave and Techno to fuel your focus.")
+        else -> Pair("Late Night Relax Mix", "Ambient soundscapes and vaporwave echoes for winding down.")
+    }
+    return listOf(
+        PlaylistEntity(
+            id = -1,
+            name = "Heavy Rotation",
+            description = "Your absolute most-played anthems, updated live"
+        ),
+        PlaylistEntity(
+            id = -2,
+            name = "Forgotten Favorites",
+            description = "Beloved tracks that deserve another listen"
+        ),
+        PlaylistEntity(
+            id = -3,
+            name = timeName,
+            description = timeDesc
+        )
+    )
+}
+
+@Composable
+fun SmartMixCard(
+    playlist: PlaylistEntity,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val gradient = when (playlist.id) {
+        -1 -> Brush.linearGradient(
+            colors = listOf(Color(0xFFEC008C), Color(0xFFFC6767))
+        )
+        -2 -> Brush.linearGradient(
+            colors = listOf(Color(0xFFFF8C00), Color(0xFF8B0000))
+        )
+        else -> {
+            val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+            when (hour) {
+                in 6..11 -> Brush.linearGradient(
+                    colors = listOf(Color(0xFFFF9A9E), Color(0xFFFECFEF), Color(0xFFFEC107))
+                )
+                in 12..17 -> Brush.linearGradient(
+                    colors = listOf(Color(0xFF11998E), Color(0xFF38EF7D))
+                )
+                else -> Brush.linearGradient(
+                    colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
+                )
+            }
+        }
+    }
+
+    val icon = when (playlist.id) {
+        -1 -> Icons.Filled.Whatshot
+        -2 -> Icons.Filled.History
+        else -> Icons.Filled.AccessTime
+    }
+
+    Card(
+        modifier = modifier
+            .width(180.dp)
+            .height(200.dp)
+            .clickable(onClick = onClick)
+            .testTag("smart_mix_card_${playlist.id}"),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(gradient)
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = SpotifyWhite,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    
+                    Text(
+                        text = "SMART MIX",
+                        color = SpotifyWhite.copy(alpha = 0.8f),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = playlist.name,
+                        color = SpotifyWhite,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = playlist.description,
+                        color = SpotifyWhite.copy(alpha = 0.8f),
+                        fontSize = 11.sp,
+                        maxLines = 2,
+                        lineHeight = 14.sp,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }
@@ -1051,36 +1213,69 @@ fun LibraryScreen(
 
         when (selectedTab) {
             0 -> {
-                // Playlists List
-                if (playlists.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = 80.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Filled.MusicNote, contentDescription = null, tint = SpotifyGrey, modifier = Modifier.size(64.dp))
-                            Text(
-                                "No playlists created yet",
-                                color = SpotifyGrey,
-                                fontSize = 15.sp,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                            Button(
-                                onClick = onCreatePlaylistClick,
-                                colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
-                                modifier = Modifier.padding(top = 12.dp)
+                // Playlists List with Smart Mixes always visible
+                LazyColumn(
+                    contentPadding = PaddingValues(bottom = 80.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    item {
+                        Text(
+                            text = "Made For You",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SpotifyWhite,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    }
+
+                    items(getSmartMixes()) { playlist ->
+                        PlaylistListItem(
+                            playlist = playlist,
+                            onClick = { onPlaylistClick(playlist) }
+                        )
+                    }
+
+                    item {
+                        Text(
+                            text = "Your Playlists",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SpotifyWhite,
+                            modifier = Modifier.padding(top = 16.dp, bottom = 12.dp)
+                        )
+                    }
+
+                    if (playlists.isEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                colors = CardDefaults.cardColors(containerColor = SpotifySurface),
+                                shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Create playlist", color = SpotifyBlack, fontWeight = FontWeight.Bold)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "No custom playlists yet",
+                                        color = SpotifyGrey,
+                                        fontSize = 14.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(
+                                        onClick = onCreatePlaylistClick,
+                                        colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen)
+                                    ) {
+                                        Text("Create playlist", color = SpotifyBlack, fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
                         }
-                    }
-                } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 80.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
+                    } else {
                         items(playlists) { playlist ->
                             PlaylistListItem(
                                 playlist = playlist,
@@ -1394,6 +1589,7 @@ fun PlaylistListItem(
     playlist: PlaylistEntity,
     onClick: () -> Unit
 ) {
+    val isSmart = playlist.id < 0
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -1405,11 +1601,30 @@ fun PlaylistListItem(
         Box(
             modifier = Modifier
                 .size(56.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(SpotifySurface),
+                .clip(RoundedCornerShape(6.dp))
+                .background(
+                    if (isSmart) {
+                        when (playlist.id) {
+                            -1 -> Brush.linearGradient(colors = listOf(Color(0xFFEC008C), Color(0xFFFC6767)))
+                            -2 -> Brush.linearGradient(colors = listOf(Color(0xFFFF8C00), Color(0xFF8B0000)))
+                            else -> Brush.linearGradient(colors = listOf(Color(0xFF11998E), Color(0xFF38EF7D)))
+                        }
+                    } else {
+                        Brush.linearGradient(colors = listOf(SpotifySurface, SpotifySurface))
+                    }
+                ),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Filled.QueueMusic, contentDescription = null, tint = SpotifyGreen, modifier = Modifier.size(28.dp))
+            if (isSmart) {
+                val icon = when (playlist.id) {
+                    -1 -> Icons.Filled.Whatshot
+                    -2 -> Icons.Filled.History
+                    else -> Icons.Filled.AccessTime
+                }
+                Icon(icon, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(24.dp))
+            } else {
+                Icon(Icons.Filled.QueueMusic, contentDescription = null, tint = SpotifyGreen, modifier = Modifier.size(28.dp))
+            }
         }
 
         Column(
@@ -1417,12 +1632,36 @@ fun PlaylistListItem(
                 .weight(1f)
                 .padding(horizontal = 12.dp)
         ) {
-            Text(
-                text = playlist.name,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = SpotifyWhite
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = playlist.name,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = SpotifyWhite,
+                    modifier = Modifier.weight(1f, fill = false),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (isSmart) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(SpotifyGreen.copy(alpha = 0.15f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Smart Mix",
+                            color = SpotifyGreen,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
             Text(
                 text = if (playlist.description.isEmpty()) "Playlist" else playlist.description,
                 fontSize = 13.sp,
@@ -1469,11 +1708,13 @@ fun PlaylistDetailScreen(
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = SpotifyWhite)
                     }
                     Spacer(modifier = Modifier.weight(1f))
-                    IconButton(
-                        onClick = onDeletePlaylist,
-                        modifier = Modifier.testTag("delete_playlist_btn")
-                    ) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete Playlist", tint = Color.Red)
+                    if (playlist.id >= 0) {
+                        IconButton(
+                            onClick = onDeletePlaylist,
+                            modifier = Modifier.testTag("delete_playlist_btn")
+                        ) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete Playlist", tint = Color.Red)
+                        }
                     }
                 }
             }
@@ -1485,14 +1726,32 @@ fun PlaylistDetailScreen(
                         .fillMaxWidth()
                         .padding(bottom = 24.dp)
                 ) {
+                    val isSmart = playlist.id < 0
                     Box(
                         modifier = Modifier
                             .size(112.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(SpotifySurface),
+                            .background(
+                                if (isSmart) {
+                                    when (playlist.id) {
+                                        -1 -> Brush.linearGradient(colors = listOf(Color(0xFFEC008C), Color(0xFFFC6767)))
+                                        -2 -> Brush.linearGradient(colors = listOf(Color(0xFFFF8C00), Color(0xFF8B0000)))
+                                        else -> Brush.linearGradient(colors = listOf(Color(0xFF11998E), Color(0xFF38EF7D)))
+                                    }
+                                } else {
+                                    Brush.linearGradient(colors = listOf(SpotifySurface, SpotifySurface))
+                                }
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (tracks.isNotEmpty()) {
+                        if (isSmart) {
+                            val icon = when (playlist.id) {
+                                -1 -> Icons.Filled.Whatshot
+                                -2 -> Icons.Filled.History
+                                else -> Icons.Filled.AccessTime
+                            }
+                            Icon(icon, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(48.dp))
+                        } else if (tracks.isNotEmpty()) {
                             TrackCoverImage(
                                 url = tracks[0].coverUrl,
                                 contentDescription = null,
@@ -1523,7 +1782,7 @@ fun PlaylistDetailScreen(
                             )
                         }
                         Text(
-                            text = "${tracks.size} songs",
+                            text = if (isSmart) "Auto-curated mix" else "${tracks.size} songs",
                             fontSize = 13.sp,
                             color = SpotifyGrey,
                             modifier = Modifier.padding(top = 4.dp)
@@ -1559,15 +1818,17 @@ fun PlaylistDetailScreen(
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    Button(
-                        onClick = { showAddSongsSheet = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = SpotifySurface),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.testTag("add_songs_btn")
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Add Songs", color = SpotifyWhite, fontSize = 13.sp)
+                    if (playlist.id >= 0) {
+                        Button(
+                            onClick = { showAddSongsSheet = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = SpotifySurface),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.testTag("add_songs_btn")
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add Songs", color = SpotifyWhite, fontSize = 13.sp)
+                        }
                     }
                 }
             }
@@ -1581,7 +1842,11 @@ fun PlaylistDetailScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "This playlist has no songs yet.\nClick 'Add Songs' below to start building!",
+                            text = if (playlist.id < 0) {
+                                "Listen to more tracks and like songs to populate this mix!"
+                            } else {
+                                "This playlist has no songs yet.\nClick 'Add Songs' below to start building!"
+                            },
                             color = SpotifyGrey,
                             textAlign = TextAlign.Center,
                             fontSize = 14.sp
@@ -1596,14 +1861,16 @@ fun PlaylistDetailScreen(
                         isPlaying = isPlaying && currentTrack?.id == track.id,
                         onClick = { onTrackClick(track) },
                         onLikeClick = { onLikeClick(track) },
-                        trailingContent = {
-                            IconButton(
-                                onClick = { onRemoveTrack(track) },
-                                modifier = Modifier.testTag("remove_track_${track.id}")
-                            ) {
-                                Icon(Icons.Filled.RemoveCircleOutline, contentDescription = "Remove", tint = SpotifyGrey)
+                        trailingContent = if (playlist.id >= 0) {
+                            {
+                                IconButton(
+                                    onClick = { onRemoveTrack(track) },
+                                    modifier = Modifier.testTag("remove_track_${track.id}")
+                                ) {
+                                    Icon(Icons.Filled.RemoveCircleOutline, contentDescription = "Remove", tint = SpotifyGrey)
+                                }
                             }
-                        }
+                        } else null
                     )
                 }
             }
