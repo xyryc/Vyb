@@ -42,6 +42,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -226,6 +232,23 @@ fun MainAppScreen(
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
     val lyricsUiState by viewModel.lyricsUiState.collectAsState()
     val themeAccent by viewModel.currentThemeAccent.collectAsState()
+
+    // Drag-to-expand states
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+
+    var dragOffset by remember { mutableStateOf<Float?>(null) }
+    val targetOffset = if (isPlayerExpanded) 0f else screenHeightPx
+    val animatedOffset by animateFloatAsState(
+        targetValue = dragOffset ?: targetOffset,
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioNoBouncy
+        ),
+        label = "PlayerOffset"
+    )
+    val miniPlayerAlpha = (animatedOffset / screenHeightPx).coerceIn(0f, 1f)
 
     // Player states
     val currentTrack by viewModel.playerManager.currentTrack.collectAsState()
@@ -448,11 +471,34 @@ fun MainAppScreen(
                 }
 
                  // Mini Player (Only visible if a track is selected and player is not expanded)
-                if (currentTrack != null) {
+                if (currentTrack != null && miniPlayerAlpha > 0f) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .padding(bottom = 8.dp, start = 8.dp, end = 8.dp)
+                            .graphicsLayer {
+                                alpha = miniPlayerAlpha
+                                translationY = (1f - miniPlayerAlpha) * 100f
+                            }
+                            .draggable(
+                                state = rememberDraggableState { delta ->
+                                    val current = dragOffset ?: screenHeightPx
+                                    dragOffset = (current + delta).coerceIn(0f, screenHeightPx)
+                                },
+                                orientation = Orientation.Vertical,
+                                onDragStarted = {
+                                    dragOffset = screenHeightPx
+                                },
+                                onDragStopped = { velocity ->
+                                    val current = dragOffset ?: screenHeightPx
+                                    if (current < screenHeightPx * 0.8f || velocity < -500f) {
+                                        viewModel.setPlayerExpanded(true)
+                                    } else {
+                                        viewModel.setPlayerExpanded(false)
+                                    }
+                                    dragOffset = null
+                                }
+                            )
                     ) {
                         MiniPlayer(
                             track = currentTrack!!,
@@ -465,26 +511,20 @@ fun MainAppScreen(
                             onSkipNextClick = { viewModel.playerManager.skipToNext() },
                             onSkipPreviousClick = { viewModel.playerManager.skipToPrevious() },
                             onSeek = { viewModel.playerManager.seekTo(it) },
-                            onClick = { viewModel.setPlayerExpanded(true) }
+                            onClick = { if (miniPlayerAlpha > 0.8f) viewModel.setPlayerExpanded(true) }
                         )
                     }
                 }
             }
         }
 
-        // Expanded full-screen player
-        AnimatedVisibility(
-            visible = isPlayerExpanded && currentTrack != null,
-            enter = slideInVertically(
-                initialOffsetY = { it },
-                animationSpec = tween(400)
-            ) + fadeIn(animationSpec = tween(400)),
-            exit = slideOutVertically(
-                targetOffsetY = { it },
-                animationSpec = tween(350)
-            ) + fadeOut(animationSpec = tween(350))
-        ) {
-            if (currentTrack != null) {
+        // Expanded full-screen player with drag support
+        if (currentTrack != null && animatedOffset < screenHeightPx) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset { IntOffset(0, animatedOffset.toInt()) }
+            ) {
                 ExpandedPlayerScreen(
                     track = currentTrack!!,
                     isPlaying = isPlaying,
@@ -507,7 +547,26 @@ fun MainAppScreen(
                     onEqualizerClick = { showEqualizer = true },
                     onCollapse = { viewModel.setPlayerExpanded(false) },
                     dominantColor = animatedDominantColor,
-                    secondaryColor = animatedSecondaryColor
+                    secondaryColor = animatedSecondaryColor,
+                    headerModifier = Modifier.draggable(
+                        state = rememberDraggableState { delta ->
+                            val current = dragOffset ?: 0f
+                            dragOffset = (current + delta).coerceIn(0f, screenHeightPx)
+                        },
+                        orientation = Orientation.Vertical,
+                        onDragStarted = {
+                            dragOffset = 0f
+                        },
+                        onDragStopped = { velocity ->
+                            val current = dragOffset ?: 0f
+                            if (current > screenHeightPx * 0.2f || velocity > 500f) {
+                                viewModel.setPlayerExpanded(false)
+                            } else {
+                                viewModel.setPlayerExpanded(true)
+                            }
+                            dragOffset = null
+                        }
+                    )
                 )
             }
         }
@@ -2210,7 +2269,8 @@ fun ExpandedPlayerScreen(
     onEqualizerClick: () -> Unit,
     onCollapse: () -> Unit,
     dominantColor: Color = SpotifySurface,
-    secondaryColor: Color = SpotifyBlack
+    secondaryColor: Color = SpotifyBlack,
+    headerModifier: Modifier = Modifier
 ) {
     var showVisualizer by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
@@ -2239,7 +2299,9 @@ fun ExpandedPlayerScreen(
             // Header
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(headerModifier)
             ) {
                 Box(
                     modifier = Modifier.weight(1f),
