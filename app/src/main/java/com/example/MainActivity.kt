@@ -68,6 +68,15 @@ import com.example.viewmodel.MusicViewModel
 import com.example.viewmodel.ScreenState
 import java.util.Calendar
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.PI
 
 val SpotifyGreen: Color
     @Composable
@@ -3956,6 +3965,252 @@ fun formatListeningTime(seconds: Long): String {
 }
 
 @Composable
+fun VerticalGainSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    label: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    accentColor: Color = SpotifyGreen
+) {
+    val rangeMin = valueRange.start
+    val rangeMax = valueRange.endInclusive
+    val rangeSize = rangeMax - rangeMin
+
+    BoxWithConstraints(
+        modifier = modifier
+            .width(44.dp)
+            .height(160.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        val totalHeightPx = constraints.maxHeight.toFloat()
+        
+        var isDragging by remember { mutableStateOf(false) }
+        
+        val dragModifier = if (enabled) {
+            Modifier.pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { isDragging = true },
+                    onDragEnd = { isDragging = false },
+                    onDragCancel = { isDragging = false },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        val newValue = (value + (-dragAmount.y / totalHeightPx) * rangeSize)
+                            .coerceIn(rangeMin, rangeMax)
+                        onValueChange(newValue)
+                    }
+                )
+            }
+        } else {
+            Modifier
+        }
+        
+        val progressFraction = ((value - rangeMin) / rangeSize).coerceIn(0f, 1f)
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(dragModifier)
+        ) {
+            val width = size.width
+            val height = size.height
+            val centerX = width / 2f
+            
+            // Draw background track
+            val trackWidth = 6.dp.toPx()
+            val trackColor = SpotifySurfaceVariant
+            
+            drawLine(
+                color = trackColor,
+                start = Offset(centerX, 0f),
+                end = Offset(centerX, height),
+                strokeWidth = trackWidth,
+                cap = StrokeCap.Round
+            )
+            
+            // Draw active track from center (0 dB is at progressFraction = 0.5)
+            if (enabled) {
+                val centerFraction = 0.5f
+                val startY = (1f - centerFraction) * height
+                val endY = (1f - progressFraction) * height
+                
+                drawLine(
+                    color = accentColor,
+                    start = Offset(centerX, startY),
+                    end = Offset(centerX, endY),
+                    strokeWidth = trackWidth,
+                    cap = StrokeCap.Round
+                )
+                
+                // Draw center notch (0 dB reference line)
+                drawLine(
+                    color = SpotifyGrey.copy(alpha = 0.5f),
+                    start = Offset(centerX - 10.dp.toPx(), height / 2f),
+                    end = Offset(centerX + 10.dp.toPx(), height / 2f),
+                    strokeWidth = 2.dp.toPx()
+                )
+            }
+
+            // Draw thumb
+            val thumbY = (1f - progressFraction) * height
+            val thumbRadius = (if (isDragging) 10.dp else 8.dp).toPx()
+            
+            if (enabled && isDragging) {
+                drawCircle(
+                    color = accentColor.copy(alpha = 0.25f),
+                    radius = thumbRadius + 6.dp.toPx(),
+                    center = Offset(centerX, thumbY)
+                )
+            }
+            
+            drawCircle(
+                color = if (enabled) accentColor else SpotifyGrey,
+                radius = thumbRadius,
+                center = Offset(centerX, thumbY)
+            )
+            
+            drawCircle(
+                color = SpotifyBlack,
+                radius = 3.dp.toPx(),
+                center = Offset(centerX, thumbY)
+            )
+        }
+    }
+}
+
+@Composable
+fun TactileKnob(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    label: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    accentColor: Color = SpotifyGreen
+) {
+    val rangeMin = valueRange.start
+    val rangeMax = valueRange.endInclusive
+    val rangeSize = rangeMax - rangeMin
+    val progressFraction = ((value - rangeMin) / rangeSize).coerceIn(0f, 1f)
+
+    var isDragging by remember { mutableStateOf(false) }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .size(76.dp)
+                .pointerInput(Unit) {
+                    if (enabled) {
+                        detectDragGestures(
+                            onDragStart = { isDragging = true },
+                            onDragEnd = { isDragging = false },
+                            onDragCancel = { isDragging = false },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                val deltaFraction = -dragAmount.y / 250f
+                                val newValue = (value + deltaFraction * rangeSize).coerceIn(rangeMin, rangeMax)
+                                onValueChange(newValue)
+                            }
+                        )
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val width = size.width
+                val height = size.height
+                val center = Offset(width / 2f, height / 2f)
+                val outerRadius = (width / 2f) - 6.dp.toPx()
+                val innerRadius = outerRadius - 8.dp.toPx()
+
+                val startAngle = 135f
+                val sweepAngleMax = 270f
+                
+                // Draw background arc
+                drawArc(
+                    color = SpotifySurfaceVariant,
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngleMax,
+                    useCenter = false,
+                    topLeft = Offset(center.x - outerRadius, center.y - outerRadius),
+                    size = size.copy(width = outerRadius * 2, height = outerRadius * 2),
+                    style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+                )
+
+                // Draw active value arc
+                if (enabled) {
+                    drawArc(
+                        color = accentColor,
+                        startAngle = startAngle,
+                        sweepAngle = sweepAngleMax * progressFraction,
+                        useCenter = false,
+                        topLeft = Offset(center.x - outerRadius, center.y - outerRadius),
+                        size = size.copy(width = outerRadius * 2, height = outerRadius * 2),
+                        style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+
+                // Draw solid knob body
+                drawCircle(
+                    color = SpotifySurface,
+                    radius = innerRadius,
+                    center = center
+                )
+
+                // Bevel border
+                drawCircle(
+                    color = if (enabled && isDragging) accentColor.copy(alpha = 0.4f) else SpotifyGrey.copy(alpha = 0.2f),
+                    radius = innerRadius,
+                    center = center,
+                    style = Stroke(width = 2.dp.toPx())
+                )
+
+                // Indicator line
+                val angleRad = (startAngle + sweepAngleMax * progressFraction) * (PI / 180f)
+                val notchLength = innerRadius * 0.7f
+                val startNotch = Offset(
+                    x = center.x + (innerRadius * 0.2f * cos(angleRad)).toFloat(),
+                    y = center.y + (innerRadius * 0.2f * sin(angleRad)).toFloat()
+                )
+                val endNotch = Offset(
+                    x = center.x + (notchLength * cos(angleRad)).toFloat(),
+                    y = center.y + (notchLength * sin(angleRad)).toFloat()
+                )
+
+                drawLine(
+                    color = if (enabled) accentColor else SpotifyGrey,
+                    start = startNotch,
+                    end = endNotch,
+                    strokeWidth = 3.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+            
+            Text(
+                text = "${(progressFraction * 100).toInt()}%",
+                color = if (enabled && progressFraction > 0f) accentColor else SpotifyGrey,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        Text(
+            text = label,
+            color = SpotifyGrey,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
 fun EqualizerDialog(
     viewModel: MusicViewModel,
     onDismiss: () -> Unit
@@ -4098,49 +4353,51 @@ fun EqualizerDialog(
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
 
-                    bandCenterFreqs.forEachIndexed { index, freq ->
-                        val gain = bandGains.getOrElse(index) { 0 }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .alpha(if (isEqualizerEnabled) 1f else 0.5f)
-                        ) {
-                            Text(
-                                text = if (freq >= 1000) "${freq / 1000} kHz" else "$freq Hz",
-                                color = SpotifyWhite,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.width(64.dp)
-                            )
-                            
-                            Slider(
-                                value = gain.toFloat(),
-                                onValueChange = {
-                                    if (isEqualizerEnabled) {
-                                        viewModel.setBandLevel(index, it.toInt())
-                                    }
-                                },
-                                valueRange = -15f..15f,
-                                steps = 30,
-                                colors = SliderDefaults.colors(
-                                    activeTrackColor = themeAccent.color,
-                                    inactiveTrackColor = SpotifySurfaceVariant,
-                                    thumbColor = themeAccent.color
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("eq_band_$index")
-                            )
-
-                            Text(
-                                text = if (gain > 0) "+$gain dB" else "$gain dB",
-                                color = if (gain != 0 && isEqualizerEnabled) themeAccent.color else SpotifyGrey,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.width(52.dp)
-                            )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .alpha(if (isEqualizerEnabled) 1f else 0.5f)
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        bandCenterFreqs.forEachIndexed { index, freq ->
+                            val gain = bandGains.getOrElse(index) { 0 }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = if (gain > 0) "+$gain" else "$gain",
+                                    color = if (gain != 0 && isEqualizerEnabled) themeAccent.color else SpotifyGrey,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                )
+                                
+                                VerticalGainSlider(
+                                    value = gain.toFloat(),
+                                    onValueChange = {
+                                        if (isEqualizerEnabled) {
+                                            viewModel.setBandLevel(index, it.toInt())
+                                        }
+                                    },
+                                    valueRange = -15f..15f,
+                                    label = "",
+                                    enabled = isEqualizerEnabled,
+                                    accentColor = themeAccent.color,
+                                    modifier = Modifier.testTag("eq_band_$index")
+                                )
+                                
+                                Spacer(modifier = Modifier.height(4.dp))
+                                
+                                Text(
+                                    text = if (freq >= 1000) "${freq / 1000}kHz" else "${freq}Hz",
+                                    color = SpotifyWhite,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }
@@ -4156,29 +4413,15 @@ fun EqualizerDialog(
                         modifier = Modifier.padding(bottom = 2.dp)
                     )
 
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .alpha(if (isEqualizerEnabled) 1f else 0.5f)
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.MusicNote, contentDescription = null, tint = SpotifyGrey, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(text = "Deep Bass Booster", color = SpotifyWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                            Text(
-                                text = "${(bassBoostStrength / 10)}%",
-                                color = if (bassBoostStrength > 0 && isEqualizerEnabled) themeAccent.color else SpotifyGrey,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Slider(
+                        TactileKnob(
                             value = bassBoostStrength.toFloat(),
                             onValueChange = {
                                 if (isEqualizerEnabled) {
@@ -4186,40 +4429,13 @@ fun EqualizerDialog(
                                 }
                             },
                             valueRange = 0f..1000f,
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = themeAccent.color,
-                                inactiveTrackColor = SpotifySurfaceVariant,
-                                thumbColor = themeAccent.color
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("bass_boost_slider")
+                            label = "Deep Bass Boost",
+                            enabled = isEqualizerEnabled,
+                            accentColor = themeAccent.color,
+                            modifier = Modifier.testTag("bass_boost_slider")
                         )
-                    }
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .alpha(if (isEqualizerEnabled) 1f else 0.5f)
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Headset, contentDescription = null, tint = SpotifyGrey, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(text = "Spatial 3D Surround", color = SpotifyWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                            Text(
-                                text = "${(virtualizerStrength / 10)}%",
-                                color = if (virtualizerStrength > 0 && isEqualizerEnabled) themeAccent.color else SpotifyGrey,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Slider(
+                        TactileKnob(
                             value = virtualizerStrength.toFloat(),
                             onValueChange = {
                                 if (isEqualizerEnabled) {
@@ -4227,14 +4443,10 @@ fun EqualizerDialog(
                                 }
                             },
                             valueRange = 0f..1000f,
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = themeAccent.color,
-                                inactiveTrackColor = SpotifySurfaceVariant,
-                                thumbColor = themeAccent.color
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("virtualizer_slider")
+                            label = "Spatial 3D Surround",
+                            enabled = isEqualizerEnabled,
+                            accentColor = themeAccent.color,
+                            modifier = Modifier.testTag("virtualizer_slider")
                         )
                     }
                 }
