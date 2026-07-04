@@ -22,6 +22,14 @@ import kotlinx.coroutines.*
 
 class MediaPlaybackService : Service() {
 
+    override fun attachBaseContext(newBase: Context?) {
+        if (newBase != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            super.attachBaseContext(newBase.createAttributionContext("music_playback"))
+        } else {
+            super.attachBaseContext(newBase)
+        }
+    }
+
     private var mediaSession: MediaSession? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var lastArtworkUrl: String? = null

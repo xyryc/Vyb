@@ -73,6 +73,14 @@ val SpotifyGreen: Color
     get() = com.example.ui.theme.LocalAccentColor.current
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: android.content.Context?) {
+        if (newBase != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            super.attachBaseContext(newBase.createAttributionContext("music_playback"))
+        } else {
+            super.attachBaseContext(newBase)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -2124,6 +2132,8 @@ fun ExpandedPlayerScreen(
     dominantColor: Color = SpotifySurface,
     secondaryColor: Color = SpotifyBlack
 ) {
+    var showVisualizer by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -2174,10 +2184,20 @@ fun ExpandedPlayerScreen(
                 )
 
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1.2f),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = { showVisualizer = !showVisualizer },
+                        modifier = Modifier.testTag("player_visualizer_toggle_btn")
+                    ) {
+                        Icon(
+                            imageVector = if (showVisualizer) Icons.Filled.GraphicEq else Icons.Outlined.GraphicEq,
+                            contentDescription = "Toggle Visualizer",
+                            tint = if (showVisualizer) SpotifyGreen else SpotifyWhite
+                        )
+                    }
                     IconButton(
                         onClick = onEqualizerClick,
                         modifier = Modifier.testTag("player_equalizer_btn")
@@ -2195,18 +2215,36 @@ fun ExpandedPlayerScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Giant Cover Art
+            // Giant Cover Art / Fluid Visualizer
             Box(
                 modifier = Modifier
-                    .size(320.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .shadow(8.dp)
+                    .fillMaxWidth()
+                    .height(320.dp)
+                    .testTag("player_center_art_area"),
+                contentAlignment = Alignment.Center
             ) {
-                TrackCoverImage(
-                    url = track.coverUrl,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize()
-                )
+                if (showVisualizer) {
+                    com.example.player.FluidVisualizer(
+                        track = track,
+                        isPlaying = isPlaying,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(320.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .shadow(8.dp)
+                            .clickable { showVisualizer = true }
+                            .testTag("player_album_art_container")
+                    ) {
+                        TrackCoverImage(
+                            url = track.coverUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.weight(1f))
