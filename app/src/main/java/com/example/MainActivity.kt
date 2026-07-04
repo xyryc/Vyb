@@ -67,6 +67,7 @@ import com.example.ui.theme.SpotifyWhite
 import com.example.viewmodel.MusicViewModel
 import com.example.viewmodel.ScreenState
 import java.util.Calendar
+import kotlinx.coroutines.delay
 
 val SpotifyGreen: Color
     @Composable
@@ -542,11 +543,28 @@ fun HomeScreen(
     isPlaying: Boolean,
     onLikeClick: (TrackEntity) -> Unit
 ) {
-    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    val greeting = when (hour) {
-        in 0..11 -> "Good morning"
-        in 12..16 -> "Good afternoon"
-        else -> "Good evening"
+    var hour by remember { mutableStateOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
+
+    // Periodically update the hour of the day in case the app stays open
+    LaunchedEffect(Unit) {
+        while (true) {
+            hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+            delay(30000) // Update every 30 seconds
+        }
+    }
+
+    val greetingText = when (hour) {
+        in 5..11 -> "Good morning 🌅"
+        in 12..16 -> "Good afternoon ☀️"
+        in 17..21 -> "Good evening 🌇"
+        else -> "Late night vibes 🌌"
+    }
+
+    val greetingSubtitle = when (hour) {
+        in 5..11 -> "Ready to start your day with some tunes?"
+        in 12..16 -> "Keep the energy high and the music playing!"
+        in 17..21 -> "Time to unwind and find your evening groove."
+        else -> "Winding down, or chasing late-night ideas?"
     }
 
     LazyColumn(
@@ -556,13 +574,21 @@ fun HomeScreen(
         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
     ) {
         item {
-            Text(
-                text = greeting,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = SpotifyWhite,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+            Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                Text(
+                    text = greetingText,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SpotifyWhite
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = greetingSubtitle,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = SpotifyGrey
+                )
+            }
         }
 
         item {
