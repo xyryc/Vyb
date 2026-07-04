@@ -72,6 +72,16 @@ val SpotifyGreen: Color
     @Composable
     get() = com.example.ui.theme.LocalAccentColor.current
 
+private fun getScreenOrdinal(screen: ScreenState): Int {
+    return when (screen) {
+        is ScreenState.Home -> 0
+        is ScreenState.Search -> 1
+        is ScreenState.Library -> 2
+        is ScreenState.PlaylistDetail -> 3
+        is ScreenState.Settings -> 4
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: android.content.Context?) {
         if (newBase != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
@@ -345,55 +355,76 @@ fun MainAppScreen(
                     .padding(innerPadding)
             ) {
                 // Screen Content
-                when (val screen = currentScreen) {
-                    is ScreenState.Home -> HomeScreen(
-                        tracks = allTracks,
-                        onTrackClick = { track -> viewModel.playTrack(track, allTracks) },
-                        onPlaylistClick = { viewModel.navigateTo(ScreenState.PlaylistDetail(it)) },
-                        currentTrack = currentTrack,
-                        isPlaying = isPlaying,
-                        onLikeClick = { viewModel.toggleLike(it) }
-                    )
+                AnimatedContent(
+                    targetState = currentScreen,
+                    transitionSpec = {
+                        val initialOrdinal = getScreenOrdinal(initialState)
+                        val targetOrdinal = getScreenOrdinal(targetState)
+                        if (targetOrdinal > initialOrdinal) {
+                            // Slide in from right to left (new screen slides in from right, old slides out to left)
+                            (slideInHorizontally { width -> width } + fadeIn(animationSpec = tween(300))).togetherWith(
+                                slideOutHorizontally { width -> -width } + fadeOut(animationSpec = tween(300))
+                            )
+                        } else {
+                            // Slide in from left to right (new screen slides in from left, old slides out to right)
+                            (slideInHorizontally { width -> -width } + fadeIn(animationSpec = tween(300))).togetherWith(
+                                slideOutHorizontally { width -> width } + fadeOut(animationSpec = tween(300))
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    label = "ScreenTransition"
+                ) { screen ->
+                    when (screen) {
+                        is ScreenState.Home -> HomeScreen(
+                            tracks = allTracks,
+                            onTrackClick = { track -> viewModel.playTrack(track, allTracks) },
+                            onPlaylistClick = { viewModel.navigateTo(ScreenState.PlaylistDetail(it)) },
+                            currentTrack = currentTrack,
+                            isPlaying = isPlaying,
+                            onLikeClick = { viewModel.toggleLike(it) }
+                        )
 
-                    is ScreenState.Search -> SearchScreen(
-                        searchQuery = searchQuery,
-                        onQueryChange = { viewModel.setSearchQuery(it) },
-                        searchResults = searchResults,
-                        onTrackClick = { track -> viewModel.playTrack(track, searchResults) },
-                        currentTrack = currentTrack,
-                        onLikeClick = { viewModel.toggleLike(it) }
-                    )
+                        is ScreenState.Search -> SearchScreen(
+                            searchQuery = searchQuery,
+                            onQueryChange = { viewModel.setSearchQuery(it) },
+                            searchResults = searchResults,
+                            onTrackClick = { track -> viewModel.playTrack(track, searchResults) },
+                            currentTrack = currentTrack,
+                            onLikeClick = { viewModel.toggleLike(it) }
+                        )
 
-                    is ScreenState.Library -> LibraryScreen(
-                        playlists = playlists,
-                        likedTracks = likedTracks,
-                        allTracks = allTracks,
-                        onPlaylistClick = { viewModel.navigateTo(ScreenState.PlaylistDetail(it)) },
-                        onTrackClick = { track -> viewModel.playTrack(track, likedTracks) },
-                        onCreatePlaylistClick = { viewModel.showCreatePlaylistDialog(true) },
-                        onImportFileClick = { filePickerLauncher.launch("audio/*") },
-                        onImportFolderClick = { directoryPickerLauncher.launch(null) },
-                        currentTrack = currentTrack,
-                        onLikeClick = { viewModel.toggleLike(it) }
-                    )
+                        is ScreenState.Library -> LibraryScreen(
+                            playlists = playlists,
+                            likedTracks = likedTracks,
+                            allTracks = allTracks,
+                            onPlaylistClick = { viewModel.navigateTo(ScreenState.PlaylistDetail(it)) },
+                            onTrackClick = { track -> viewModel.playTrack(track, likedTracks) },
+                            onCreatePlaylistClick = { viewModel.showCreatePlaylistDialog(true) },
+                            onImportFileClick = { filePickerLauncher.launch("audio/*") },
+                            onImportFolderClick = { directoryPickerLauncher.launch(null) },
+                            currentTrack = currentTrack,
+                            onLikeClick = { viewModel.toggleLike(it) }
+                        )
 
-                    is ScreenState.PlaylistDetail -> PlaylistDetailScreen(
-                        playlist = screen.playlist,
-                        tracks = selectedPlaylistTracks,
-                        allTracks = allTracks,
-                        onTrackClick = { track -> viewModel.playTrack(track, selectedPlaylistTracks) },
-                        currentTrack = currentTrack,
-                        isPlaying = isPlaying,
-                        onDeletePlaylist = { viewModel.deletePlaylist(screen.playlist.id) },
-                        onRemoveTrack = { track -> viewModel.removeTrackFromPlaylist(screen.playlist.id, track.id) },
-                        onAddTrack = { track -> viewModel.addTrackToPlaylist(screen.playlist.id, track.id) },
-                        onLikeClick = { viewModel.toggleLike(it) },
-                        onBackClick = { viewModel.navigateTo(ScreenState.Library) }
-                    )
+                        is ScreenState.PlaylistDetail -> PlaylistDetailScreen(
+                            playlist = screen.playlist,
+                            tracks = selectedPlaylistTracks,
+                            allTracks = allTracks,
+                            onTrackClick = { track -> viewModel.playTrack(track, selectedPlaylistTracks) },
+                            currentTrack = currentTrack,
+                            isPlaying = isPlaying,
+                            onDeletePlaylist = { viewModel.deletePlaylist(screen.playlist.id) },
+                            onRemoveTrack = { track -> viewModel.removeTrackFromPlaylist(screen.playlist.id, track.id) },
+                            onAddTrack = { track -> viewModel.addTrackToPlaylist(screen.playlist.id, track.id) },
+                            onLikeClick = { viewModel.toggleLike(it) },
+                            onBackClick = { viewModel.navigateTo(ScreenState.Library) }
+                        )
 
-                    is ScreenState.Settings -> SettingsScreen(
-                        viewModel = viewModel
-                    )
+                        is ScreenState.Settings -> SettingsScreen(
+                            viewModel = viewModel
+                        )
+                    }
                 }
 
                  // Mini Player (Only visible if a track is selected and player is not expanded)
