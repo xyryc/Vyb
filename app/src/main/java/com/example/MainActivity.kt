@@ -70,6 +70,7 @@ import java.util.Calendar
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -3978,6 +3979,9 @@ fun VerticalGainSlider(
     val rangeMax = valueRange.endInclusive
     val rangeSize = rangeMax - rangeMin
 
+    // Keep track of high-precision float state to prevent integer truncation stickiness
+    var localValue by remember(value) { mutableStateOf(value) }
+
     BoxWithConstraints(
         modifier = modifier
             .width(44.dp)
@@ -3989,24 +3993,42 @@ fun VerticalGainSlider(
         var isDragging by remember { mutableStateOf(false) }
         
         val dragModifier = if (enabled) {
-            Modifier.pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { isDragging = true },
-                    onDragEnd = { isDragging = false },
-                    onDragCancel = { isDragging = false },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val newValue = (value + (-dragAmount.y / totalHeightPx) * rangeSize)
-                            .coerceIn(rangeMin, rangeMax)
-                        onValueChange(newValue)
-                    }
-                )
-            }
+            Modifier
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = { offset ->
+                            isDragging = true
+                            val fraction = ((totalHeightPx - offset.y) / totalHeightPx).coerceIn(0f, 1f)
+                            val newValue = rangeMin + fraction * rangeSize
+                            localValue = newValue
+                            onValueChange(newValue)
+                            try {
+                                awaitRelease()
+                            } finally {
+                                isDragging = false
+                            }
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { isDragging = true },
+                        onDragEnd = { isDragging = false },
+                        onDragCancel = { isDragging = false },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            val fraction = ((totalHeightPx - change.position.y) / totalHeightPx).coerceIn(0f, 1f)
+                            val newValue = rangeMin + fraction * rangeSize
+                            localValue = newValue
+                            onValueChange(newValue)
+                        }
+                    )
+                }
         } else {
             Modifier
         }
         
-        val progressFraction = ((value - rangeMin) / rangeSize).coerceIn(0f, 1f)
+        val progressFraction = ((localValue - rangeMin) / rangeSize).coerceIn(0f, 1f)
 
         Canvas(
             modifier = Modifier
@@ -4092,7 +4114,10 @@ fun TactileKnob(
     val rangeMin = valueRange.start
     val rangeMax = valueRange.endInclusive
     val rangeSize = rangeMax - rangeMin
-    val progressFraction = ((value - rangeMin) / rangeSize).coerceIn(0f, 1f)
+
+    // Keep track of high-precision float state to prevent integer truncation stickiness
+    var localValue by remember(value) { mutableStateOf(value) }
+    val progressFraction = ((localValue - rangeMin) / rangeSize).coerceIn(0f, 1f)
 
     var isDragging by remember { mutableStateOf(false) }
 
@@ -4111,8 +4136,9 @@ fun TactileKnob(
                             onDragCancel = { isDragging = false },
                             onDrag = { change, dragAmount ->
                                 change.consume()
-                                val deltaFraction = -dragAmount.y / 250f
-                                val newValue = (value + deltaFraction * rangeSize).coerceIn(rangeMin, rangeMax)
+                                val deltaFraction = -dragAmount.y / 300f
+                                val newValue = (localValue + deltaFraction * rangeSize).coerceIn(rangeMin, rangeMax)
+                                localValue = newValue
                                 onValueChange(newValue)
                             }
                         )
