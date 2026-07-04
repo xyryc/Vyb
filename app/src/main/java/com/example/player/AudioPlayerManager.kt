@@ -23,12 +23,6 @@ class AudioPlayerManager(private val context: Context) {
             private set
     }
 
-    private val attributionContext: Context = if (android.os.Build.VERSION.SDK_INT >= 30) {
-        context.createAttributionContext("music_player")
-    } else {
-        context
-    }
-
     private var mediaPlayer: MediaPlayer? = null
     
     // Equalizer and Sound booster instances
@@ -260,11 +254,7 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     private fun initializeMediaPlayer() {
-        mediaPlayer = if (android.os.Build.VERSION.SDK_INT >= 31) {
-            MediaPlayer(attributionContext)
-        } else {
-            MediaPlayer()
-        }.apply {
+        mediaPlayer = MediaPlayer().apply {
             setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
@@ -351,7 +341,7 @@ class AudioPlayerManager(private val context: Context) {
 
         try {
             mediaPlayer?.reset()
-            mediaPlayer?.setDataSource(attributionContext, Uri.parse(track.audioUrl))
+            mediaPlayer?.setDataSource(context.applicationContext, Uri.parse(track.audioUrl))
             mediaPlayer?.prepareAsync()
             
             // If shuffle was enabled, ensure queue is ordered accordingly

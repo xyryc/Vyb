@@ -71,10 +71,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _currentThemeAccent = MutableStateFlow(
         try {
-            val savedName = sharedPrefs.getString("theme_accent", ThemeAccent.SUNSET_AMBER.name)
-            ThemeAccent.valueOf(savedName ?: ThemeAccent.SUNSET_AMBER.name)
+            val savedName = sharedPrefs.getString("theme_accent", ThemeAccent.COSMIC_BLUE.name)
+            ThemeAccent.valueOf(savedName ?: ThemeAccent.COSMIC_BLUE.name)
         } catch (e: Exception) {
-            ThemeAccent.SUNSET_AMBER
+            ThemeAccent.COSMIC_BLUE
         }
     )
     val currentThemeAccent: StateFlow<ThemeAccent> = _currentThemeAccent.asStateFlow()
