@@ -3250,6 +3250,92 @@ fun DynamicIslandPermissionBanner() {
 }
 
 @Composable
+fun SettingsCategoryCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    isExpanded: Boolean,
+    onClick: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = SpotifySurface),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isExpanded) iconColor.copy(alpha = 0.3f) else SpotifySurfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(iconColor.copy(alpha = 0.1f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = iconColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        fontWeight = FontWeight.Bold,
+                        color = SpotifyWhite,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = subtitle,
+                        color = SpotifyGrey,
+                        fontSize = 12.sp
+                    )
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = SpotifyGrey,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 20.dp)
+                ) {
+                    HorizontalDivider(
+                        color = SpotifySurfaceVariant,
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    content()
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun SettingsScreen(
     viewModel: MusicViewModel,
     modifier: Modifier = Modifier
@@ -3286,6 +3372,52 @@ fun SettingsScreen(
         0f
     }
 
+    // New configuration states mapping the reference layout
+    var language by remember {
+        mutableStateOf(sharedPrefs.getString("pref_language", "English") ?: "English")
+    }
+    var showNotifications by remember {
+        mutableStateOf(sharedPrefs.getBoolean("pref_notifications", true))
+    }
+    var crossfadeDuration by remember {
+        mutableStateOf(sharedPrefs.getFloat("pref_crossfade_duration", 0f))
+    }
+    var replayGainEnabled by remember {
+        mutableStateOf(sharedPrefs.getBoolean("pref_replay_gain", false))
+    }
+    var visualizerStyle by remember {
+        mutableStateOf(sharedPrefs.getString("pref_visualizer_style", "Fluid Particles") ?: "Fluid Particles")
+    }
+    var ambientGlowEnabled by remember {
+        mutableStateOf(sharedPrefs.getBoolean("pref_ambient_glow", true))
+    }
+    var blurIntensity by remember {
+        mutableStateOf(sharedPrefs.getFloat("pref_blur_intensity", 25f))
+    }
+    var downloadWifiOnly by remember {
+        mutableStateOf(sharedPrefs.getBoolean("pref_wifi_only", false))
+    }
+    var highQualityArt by remember {
+        mutableStateOf(sharedPrefs.getBoolean("pref_hq_art", true))
+    }
+    var librarySortOrder by remember {
+        mutableStateOf(sharedPrefs.getString("pref_sort_order", "Title") ?: "Title")
+    }
+    var pauseOnUnplug by remember {
+        mutableStateOf(sharedPrefs.getBoolean("pref_pause_on_unplug", true))
+    }
+    var resumeOnConnect by remember {
+        mutableStateOf(sharedPrefs.getBoolean("pref_resume_on_connect", false))
+    }
+    var lockScreenWidgetEnabled by remember {
+        mutableStateOf(sharedPrefs.getBoolean("pref_lockscreen_widget", true))
+    }
+    var hapticFeedbackIntensity by remember {
+        mutableStateOf(sharedPrefs.getString("pref_haptic_intensity", "Crisp") ?: "Crisp")
+    }
+
+    var expandedCategory by remember { mutableStateOf<String?>(null) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -3302,619 +3434,606 @@ fun SettingsScreen(
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Theme Accent Colors Section
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = SpotifySurface),
-            shape = RoundedCornerShape(16.dp)
+        // 1. LOOK AND FEEL CATEGORY
+        SettingsCategoryCard(
+            title = "Look and Feel",
+            subtitle = "Theme accents, interface language, status controls",
+            icon = Icons.Default.Palette,
+            iconColor = currentAccent.color,
+            isExpanded = expandedCategory == "look_and_feel",
+            onClick = {
+                expandedCategory = if (expandedCategory == "look_and_feel") null else "look_and_feel"
+                triggerHapticFeedback(context, "snap")
+            }
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
+            Text(
+                text = "Theme Accent Colors",
+                fontWeight = FontWeight.Bold,
+                color = SpotifyWhite,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Text(
+                text = "Select your neon brand flavor for the player interface",
+                color = SpotifyGrey,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(
+                items(com.example.ui.theme.ThemeAccent.values()) { accent ->
+                    val isSelected = currentAccent == accent
+                    val animatedScale by animateFloatAsState(
+                        targetValue = if (isSelected) 1.04f else 0.96f,
+                        label = "accentScale"
+                    )
+                    val animatedAlpha by animateFloatAsState(
+                        targetValue = if (isSelected) 1.0f else 0.7f,
+                        label = "accentAlpha"
+                    )
+
+                    Card(
                         modifier = Modifier
-                            .size(36.dp)
-                            .background(SpotifyGreen.copy(alpha = 0.1f), CircleShape),
-                        contentAlignment = Alignment.Center
+                            .graphicsLayer {
+                                scaleX = animatedScale
+                                scaleY = animatedScale
+                                alpha = animatedAlpha
+                            }
+                            .clickable {
+                                viewModel.setThemeAccent(accent)
+                                triggerHapticFeedback(context, "snap")
+                            }
+                            .testTag("theme_accent_${accent.name.lowercase()}"),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) SpotifySurfaceVariant else SpotifyBlack.copy(alpha = 0.4f)
+                        ),
+                        border = BorderStroke(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) accent.color else SpotifySurfaceVariant
+                        )
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Palette,
-                            contentDescription = "Theme Accent",
-                            tint = SpotifyGreen,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Theme Accent Colors",
-                            fontWeight = FontWeight.Bold,
-                            color = SpotifyWhite,
-                            fontSize = 16.sp
-                        )
-                        Text(
-                            text = "Select your neon brand flavor for the player",
-                            color = SpotifyGrey,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Smooth horizontal carousel of available brand styles
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
-                ) {
-                    items(com.example.ui.theme.ThemeAccent.values()) { accent ->
-                        val isSelected = currentAccent == accent
-                        val animatedScale by animateFloatAsState(
-                            targetValue = if (isSelected) 1.04f else 0.96f,
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                            label = "accentScale"
-                        )
-                        val animatedAlpha by animateFloatAsState(
-                            targetValue = if (isSelected) 1.0f else 0.7f,
-                            label = "accentAlpha"
-                        )
-
-                        Card(
-                            modifier = Modifier
-                                .graphicsLayer {
-                                    scaleX = animatedScale
-                                    scaleY = animatedScale
-                                    alpha = animatedAlpha
-                                }
-                                .clickable { viewModel.setThemeAccent(accent) }
-                                .testTag("theme_accent_${accent.name.lowercase()}"),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected) SpotifySurfaceVariant else SpotifyBlack.copy(alpha = 0.4f)
-                            ),
-                            border = BorderStroke(
-                                width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) accent.color else SpotifySurfaceVariant
-                            )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .background(accent.color.copy(alpha = 0.2f), CircleShape)
+                                    .border(1.dp, accent.color.copy(alpha = 0.4f), CircleShape),
+                                contentAlignment = Alignment.Center
                             ) {
-                                // Double circular ring for beautiful depth
                                 Box(
                                     modifier = Modifier
-                                        .size(20.dp)
-                                        .background(accent.color.copy(alpha = 0.2f), CircleShape)
-                                        .border(1.dp, accent.color.copy(alpha = 0.4f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .background(accent.color, CircleShape)
-                                    )
-                                }
-                                Text(
-                                    text = accent.label,
-                                    color = if (isSelected) SpotifyWhite else SpotifyGrey,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                        .size(8.dp)
+                                        .background(accent.color, CircleShape)
                                 )
                             }
+                            Text(
+                                text = accent.label,
+                                color = if (isSelected) SpotifyWhite else SpotifyGrey,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                            )
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(20.dp))
             }
-        }
 
-        // Sleep Timer Section
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = SpotifySurface),
-            shape = RoundedCornerShape(16.dp)
-        ) {
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Floating Dynamic Island Overlay Mode
+            Text(
+                text = "Floating Dynamic Island Mode",
+                fontWeight = FontWeight.Bold,
+                color = SpotifyWhite,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+            Text(
+                text = "Choose how the background floating overlay scales",
+                color = SpotifyGrey,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            val modes = listOf(
+                Triple("COMPACT", "Compact Pill", "Always small & unobtrusive"),
+                Triple("EXPANDED", "Expanded Card", "Always shows controls and details"),
+                Triple("AUTO", "Auto-expanding", "Expands on long-press interaction")
+            )
+
             Column(
-                modifier = Modifier.padding(16.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(SpotifyGreen.copy(alpha = 0.1f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AccessTime,
-                            contentDescription = "Sleep Timer",
-                            tint = SpotifyGreen,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Sleep Timer",
-                            fontWeight = FontWeight.Bold,
-                            color = SpotifyWhite,
-                            fontSize = 16.sp
-                        )
-                        Text(
-                            text = if (sleepTimerRemaining > 0) {
-                                "Stops playback in ${formatSleepTimer(sleepTimerRemaining)}"
-                            } else {
-                                "Automatically stop audio playback"
-                            },
-                            color = if (sleepTimerRemaining > 0) SpotifyGreen else SpotifyGrey,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                if (sleepTimerRemaining > 0) {
-                    Column(
+                modes.forEach { (modeKey, modeTitle, modeDesc) ->
+                    val isSelected = islandMode == modeKey
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(SpotifyBlack.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                            .border(1.dp, SpotifySurfaceVariant, RoundedCornerShape(12.dp))
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "ACTIVE COUNTDOWN",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SpotifyGrey,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = formatSleepTimer(sleepTimerRemaining),
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = SpotifyWhite,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        
-                        LinearProgressIndicator(
-                            progress = progress,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(50)),
-                            color = SpotifyGreen,
-                            trackColor = SpotifySurfaceVariant
-                        )
-                        
-                        Spacer(modifier = Modifier.height(18.dp))
-                        
-                        Text(
-                            text = "Extend Timer",
-                            fontSize = 11.sp,
-                            color = SpotifyGrey,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.align(Alignment.Start)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            listOf(5, 10, 15).forEach { extMinutes ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .background(SpotifySurfaceVariant, RoundedCornerShape(8.dp))
-                                        .clickable { viewModel.extendSleepTimer(extMinutes) }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "+${extMinutes}m",
-                                        color = SpotifyWhite,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                            .background(
+                                if (isSelected) SpotifySurfaceVariant else SpotifyBlack.copy(alpha = 0.3f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .border(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) currentAccent.color else SpotifySurfaceVariant,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .clickable {
+                                islandMode = modeKey
+                                sharedPrefs.edit().putString("island_mode", modeKey).apply()
+                                triggerHapticFeedback(context, "snap")
                             }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Button(
-                            onClick = { viewModel.cancelSleepTimer() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("cancel_sleep_timer_btn"),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Cancel Sleep Timer", color = SpotifyWhite, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = {
+                                islandMode = modeKey
+                                sharedPrefs.edit().putString("island_mode", modeKey).apply()
+                                triggerHapticFeedback(context, "snap")
+                            },
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = currentAccent.color,
+                                unselectedColor = SpotifyGrey
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
                             Text(
-                                text = "Custom Duration",
+                                text = modeTitle,
                                 color = SpotifyWhite,
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "${customMinutes.toInt()} min",
-                                color = SpotifyGreen,
-                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        Slider(
-                            value = customMinutes,
-                            onValueChange = { customMinutes = it },
-                            valueRange = 1f..120f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = SpotifyGreen,
-                                activeTrackColor = SpotifyGreen,
-                                inactiveTrackColor = SpotifySurfaceVariant
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Button(
-                            onClick = { viewModel.setSleepTimer(customMinutes.toInt()) },
-                            colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
                             Text(
-                                text = "Start Sleep Timer",
-                                color = SpotifyBlack,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                text = modeDesc,
+                                color = SpotifyGrey,
+                                fontSize = 11.sp
                             )
                         }
                     }
                 }
             }
-        }
 
-        // Real Equalizer Settings Section
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = SpotifySurface),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(currentAccent.color.copy(alpha = 0.1f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Tune,
-                            contentDescription = "Equalizer",
-                            tint = currentAccent.color,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Acoustic Equalizer",
-                            fontWeight = FontWeight.Bold,
-                            color = SpotifyWhite,
-                            fontSize = 16.sp
-                        )
-                        val isEqualizerEnabled by viewModel.isEqualizerEnabled.collectAsState()
-                        Text(
-                            text = if (isEqualizerEnabled) "Equalizer & Sound Effects Active" else "Enhance your offline listening experience",
-                            color = if (isEqualizerEnabled) currentAccent.color else SpotifyGrey,
-                            fontSize = 12.sp
-                        )
-                    }
-                    val isEqualizerEnabled by viewModel.isEqualizerEnabled.collectAsState()
-                    Switch(
-                        checked = isEqualizerEnabled,
-                        onCheckedChange = { viewModel.setEqualizerEnabled(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = SpotifyBlack,
-                            checkedTrackColor = currentAccent.color,
-                            uncheckedThumbColor = SpotifyGrey,
-                            uncheckedTrackColor = SpotifySurfaceVariant
-                        ),
-                        modifier = Modifier.graphicsLayer {
-                            scaleX = 0.85f
-                            scaleY = 0.85f
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                var showSettingsEqualizer by remember { mutableStateOf(false) }
-
-                Button(
-                    onClick = { showSettingsEqualizer = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+            // System Permission Box for Overlay
+            val hasOverlayPermission = Settings.canDrawOverlays(context)
+            if (!hasOverlayPermission) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFF9800).copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.3f))
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .clickable {
+                                val intent = Intent(
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    android.net.Uri.parse("package:${context.packageName}")
+                                )
+                                context.startActivity(intent)
+                            }
+                            .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Tune,
-                            contentDescription = null,
-                            tint = SpotifyWhite,
-                            modifier = Modifier.size(16.dp)
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = "Permission Required",
+                            tint = Color(0xFFFF9800),
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Open Equalizer Studio",
-                            color = SpotifyWhite,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "System Overlay Permission Required",
+                                color = Color(0xFFFF9800),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Tap here to authorize displaying the float bar.",
+                                color = SpotifyGrey,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            tint = Color(0xFFFF9800),
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
+            }
 
-                if (showSettingsEqualizer) {
-                    EqualizerDialog(
-                        viewModel = viewModel,
-                        onDismiss = { showSettingsEqualizer = false }
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Language Dropdown
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Application Language",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Language for user interface elements",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
                     )
                 }
+
+                var showLangDropdown by remember { mutableStateOf(false) }
+                Box {
+                    Button(
+                        onClick = { showLangDropdown = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(text = language, color = SpotifyWhite, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(16.dp))
+                    }
+
+                    DropdownMenu(
+                        expanded = showLangDropdown,
+                        onDismissRequest = { showLangDropdown = false },
+                        modifier = Modifier.background(SpotifySurfaceVariant)
+                    ) {
+                        listOf("English", "Español", "Français", "Deutsch", "日本語").forEach { lang ->
+                            DropdownMenuItem(
+                                text = { Text(text = lang, color = SpotifyWhite) },
+                                onClick = {
+                                    language = lang
+                                    sharedPrefs.edit().putString("pref_language", lang).apply()
+                                    showLangDropdown = false
+                                    triggerHapticFeedback(context, "tick")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // System Notification Control Toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "System Drawer Controls",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Show playback control notifications in system drawer",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = showNotifications,
+                    onCheckedChange = {
+                        showNotifications = it
+                        sharedPrefs.edit().putBoolean("pref_notifications", it).apply()
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
             }
         }
 
-        // Floating Dynamic Island Customization
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 32.dp),
-            colors = CardDefaults.cardColors(containerColor = SpotifySurface),
-            shape = RoundedCornerShape(16.dp)
+        // 2. AUDIO CATEGORY
+        SettingsCategoryCard(
+            title = "Audio Output & Effects",
+            subtitle = "Equalizer studio, crossfade overlaps, volume levels",
+            icon = Icons.Default.Tune,
+            iconColor = currentAccent.color,
+            isExpanded = expandedCategory == "audio",
+            onClick = {
+                expandedCategory = if (expandedCategory == "audio") null else "audio"
+                triggerHapticFeedback(context, "snap")
+            }
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
+            // Acoustic Equalizer Row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Acoustic Equalizer",
+                        fontWeight = FontWeight.Bold,
+                        color = SpotifyWhite,
+                        fontSize = 14.sp
+                    )
+                    val isEqualizerEnabled by viewModel.isEqualizerEnabled.collectAsState()
+                    Text(
+                        text = if (isEqualizerEnabled) "Equalizer & Sound Effects Active" else "Enhance your offline listening experience",
+                        color = if (isEqualizerEnabled) currentAccent.color else SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                val isEqualizerEnabled by viewModel.isEqualizerEnabled.collectAsState()
+                Switch(
+                    checked = isEqualizerEnabled,
+                    onCheckedChange = {
+                        viewModel.setEqualizerEnabled(it)
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            var showSettingsEqualizer by remember { mutableStateOf(false) }
+            Button(
+                onClick = {
+                    showSettingsEqualizer = true
+                    triggerHapticFeedback(context, "snap")
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(SpotifyGreen.copy(alpha = 0.1f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Layers,
-                            contentDescription = "Dynamic Island Settings",
-                            tint = SpotifyGreen,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Floating Dynamic Island",
-                            fontWeight = FontWeight.Bold,
-                            color = SpotifyWhite,
-                            fontSize = 16.sp
-                        )
-                        Text(
-                            text = "Behavior & Overlay Styling",
-                            color = SpotifyGrey,
-                            fontSize = 12.sp
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.Tune,
+                        contentDescription = null,
+                        tint = SpotifyWhite,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Open Equalizer Studio",
+                        color = SpotifyWhite,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Permission Warning & Trigger button
-                val hasPermission = Settings.canDrawOverlays(context)
-                if (!hasPermission) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFF9800).copy(alpha = 0.15f)),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.3f))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .clickable {
-                                    val intent = Intent(
-                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                        android.net.Uri.parse("package:${context.packageName}")
-                                    )
-                                    context.startActivity(intent)
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Warning,
-                                contentDescription = "Permission Required",
-                                tint = Color(0xFFFF9800),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "System Overlay Permission Required",
-                                    color = Color(0xFFFF9800),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Tap here to authorize displaying the float bar.",
-                                    color = SpotifyGrey,
-                                    fontSize = 11.sp
-                                )
-                            }
-                            Icon(
-                                imageVector = Icons.Filled.ChevronRight,
-                                contentDescription = null,
-                                tint = Color(0xFFFF9800),
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(SpotifyGreen.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.CheckCircle,
-                            contentDescription = "Active",
-                            tint = SpotifyGreen,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "Overlay Permission is active",
-                            color = SpotifyGreen,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Mode Selector Title
-                Text(
-                    text = "Overlay Modes",
-                    color = SpotifyWhite,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
+            if (showSettingsEqualizer) {
+                EqualizerDialog(
+                    viewModel = viewModel,
+                    onDismiss = { showSettingsEqualizer = false }
                 )
+            }
 
-                // Layout Modes Options: COMPACT, EXPANDED, AUTO
-                val modes = listOf(
-                    Triple("COMPACT", "Compact Pill", "Always small & unobtrusive"),
-                    Triple("EXPANDED", "Expanded Card", "Always shows controls and details"),
-                    Triple("AUTO", "Auto-expanding", "Expands on long-press interaction")
-                )
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
 
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    modes.forEach { (modeKey, modeTitle, modeDesc) ->
-                        val isSelected = islandMode == modeKey
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    if (isSelected) SpotifySurfaceVariant else SpotifyBlack.copy(alpha = 0.3f),
-                                    RoundedCornerShape(12.dp)
-                                )
-                                .border(
-                                    width = if (isSelected) 1.5.dp else 1.dp,
-                                    color = if (isSelected) SpotifyGreen else SpotifySurfaceVariant,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .clickable {
-                                    islandMode = modeKey
-                                    sharedPrefs.edit().putString("island_mode", modeKey).apply()
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = {
-                                    islandMode = modeKey
-                                    sharedPrefs.edit().putString("island_mode", modeKey).apply()
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = SpotifyGreen,
-                                    unselectedColor = SpotifyGrey
-                                )
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = modeTitle,
-                                    color = SpotifyWhite,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = modeDesc,
-                                    color = SpotifyGrey,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Transparency Slider
+            // Crossfade Duration
+            Column {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column {
+                        Text(
+                            text = "Track Crossfade",
+                            color = SpotifyWhite,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Overlap preceding and following tracks",
+                            color = SpotifyGrey,
+                            fontSize = 11.sp
+                        )
+                    }
                     Text(
-                        text = "Background Opacity",
-                        color = SpotifyWhite,
+                        text = if (crossfadeDuration > 0f) "${String.format("%.1f", crossfadeDuration)}s" else "Off",
+                        color = currentAccent.color,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Slider(
+                    value = crossfadeDuration,
+                    onValueChange = {
+                        crossfadeDuration = it
+                        sharedPrefs.edit().putFloat("pref_crossfade_duration", it).apply()
+                    },
+                    valueRange = 0f..10f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = currentAccent.color,
+                        activeTrackColor = currentAccent.color,
+                        inactiveTrackColor = SpotifySurfaceVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Replay Gain
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Replay Gain Control",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Level track loudness dynamically to avoid clipping",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = replayGainEnabled,
+                    onCheckedChange = {
+                        replayGainEnabled = it
+                        sharedPrefs.edit().putBoolean("pref_replay_gain", it).apply()
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Output Device Info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Audio Output Device",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Currently selected audio driver target",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Text(
+                    text = "Android Audio Driver",
+                    color = SpotifyGrey,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .background(SpotifySurfaceVariant, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
+
+        // 3. VISUALIZATION CATEGORY
+        SettingsCategoryCard(
+            title = "Visualization Style",
+            subtitle = "Acoustic wave pattern, controls transparency",
+            icon = Icons.Default.GraphicEq,
+            iconColor = currentAccent.color,
+            isExpanded = expandedCategory == "visualization",
+            onClick = {
+                expandedCategory = if (expandedCategory == "visualization") null else "visualization"
+                triggerHapticFeedback(context, "snap")
+            }
+        ) {
+            Text(
+                text = "Acoustic Wave Style",
+                fontWeight = FontWeight.Bold,
+                color = SpotifyWhite,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            val styles = listOf("Fluid Particles", "Sine Wave", "Bar Spectrum")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                styles.forEach { style ->
+                    val isSel = visualizerStyle == style
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                if (isSel) currentAccent.color.copy(alpha = 0.15f) else SpotifyBlack.copy(alpha = 0.3f),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isSel) currentAccent.color else SpotifySurfaceVariant,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                visualizerStyle = style
+                                sharedPrefs.edit().putString("pref_visualizer_style", style).apply()
+                                triggerHapticFeedback(context, "tick")
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = style,
+                            color = if (isSel) currentAccent.color else SpotifyWhite,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Background Opacity / Transparency
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Controls Opacity",
+                            color = SpotifyWhite,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Transparency of player interface overlays",
+                            color = SpotifyGrey,
+                            fontSize = 11.sp
+                        )
+                    }
                     Text(
                         text = "${(islandOpacity * 100).toInt()}%",
-                        color = SpotifyGreen,
+                        color = currentAccent.color,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -3928,12 +4047,696 @@ fun SettingsScreen(
                     },
                     valueRange = 0.3f..1.0f,
                     colors = SliderDefaults.colors(
-                        thumbColor = SpotifyGreen,
-                        activeTrackColor = SpotifyGreen,
+                        thumbColor = currentAccent.color,
+                        activeTrackColor = currentAccent.color,
                         inactiveTrackColor = SpotifySurfaceVariant
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+        }
+
+        // 4. BACKGROUND CATEGORY
+        SettingsCategoryCard(
+            title = "Background",
+            subtitle = "Ambient glow, blur intensity depth",
+            icon = Icons.Default.Image,
+            iconColor = currentAccent.color,
+            isExpanded = expandedCategory == "background",
+            onClick = {
+                expandedCategory = if (expandedCategory == "background") null else "background"
+                triggerHapticFeedback(context, "snap")
+            }
+        ) {
+            // Ambient Glow Toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Ambient Dynamic Glow",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Render rotating radial gradients based on album art colors",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = ambientGlowEnabled,
+                    onCheckedChange = {
+                        ambientGlowEnabled = it
+                        sharedPrefs.edit().putBoolean("pref_ambient_glow", it).apply()
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Blur Intensity slider
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Blur Intensity",
+                            color = SpotifyWhite,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Soft blur depth for player backdrops",
+                            color = SpotifyGrey,
+                            fontSize = 11.sp
+                        )
+                    }
+                    Text(
+                        text = "${blurIntensity.toInt()}dp",
+                        color = currentAccent.color,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Slider(
+                    value = blurIntensity,
+                    onValueChange = {
+                        blurIntensity = it
+                        sharedPrefs.edit().putFloat("pref_blur_intensity", it).apply()
+                    },
+                    valueRange = 10f..50f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = currentAccent.color,
+                        activeTrackColor = currentAccent.color,
+                        inactiveTrackColor = SpotifySurfaceVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        // 5. ALBUM ART CATEGORY
+        SettingsCategoryCard(
+            title = "Album Art",
+            subtitle = "Download, quality cache cleaners",
+            icon = Icons.Default.Album,
+            iconColor = currentAccent.color,
+            isExpanded = expandedCategory == "album_art",
+            onClick = {
+                expandedCategory = if (expandedCategory == "album_art") null else "album_art"
+                triggerHapticFeedback(context, "snap")
+            }
+        ) {
+            // Download Over Wi-Fi Only
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Download over Wi-Fi Only",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Saves mobile cellular data when fetching album covers",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = downloadWifiOnly,
+                    onCheckedChange = {
+                        downloadWifiOnly = it
+                        sharedPrefs.edit().putBoolean("pref_wifi_only", it).apply()
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // High Quality Art
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "High Definition Artwork",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Load full resolution pictures when available",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = highQualityArt,
+                    onCheckedChange = {
+                        highQualityArt = it
+                        sharedPrefs.edit().putBoolean("pref_hq_art", it).apply()
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Clear Cache Button
+            Button(
+                onClick = {
+                    triggerHapticFeedback(context, "double_pulse")
+                    android.widget.Toast.makeText(context, "Album art cache cleared successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Clear Album Art Cache", color = SpotifyWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+
+        // 6. LIBRARY CATEGORY
+        SettingsCategoryCard(
+            title = "Library & Folders",
+            subtitle = "Rescan music, offline tracks sort order",
+            icon = Icons.AutoMirrored.Filled.List,
+            iconColor = currentAccent.color,
+            isExpanded = expandedCategory == "library",
+            onClick = {
+                expandedCategory = if (expandedCategory == "library") null else "library"
+                triggerHapticFeedback(context, "snap")
+            }
+        ) {
+            // Sort Order
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Library Sort Order",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Default sorting for offline lists",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+
+                var showSortDropdown by remember { mutableStateOf(false) }
+                Box {
+                    Button(
+                        onClick = { showSortDropdown = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(text = librarySortOrder, color = SpotifyWhite, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(16.dp))
+                    }
+
+                    DropdownMenu(
+                        expanded = showSortDropdown,
+                        onDismissRequest = { showSortDropdown = false },
+                        modifier = Modifier.background(SpotifySurfaceVariant)
+                    ) {
+                        listOf("Title", "Artist", "Date Added").forEach { sort ->
+                            DropdownMenuItem(
+                                text = { Text(text = sort, color = SpotifyWhite) },
+                                onClick = {
+                                    librarySortOrder = sort
+                                    sharedPrefs.edit().putString("pref_sort_order", sort).apply()
+                                    showSortDropdown = false
+                                    triggerHapticFeedback(context, "tick")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Rescan library with animated simulation!
+            var isScanning by remember { mutableStateOf(false) }
+            var scanProgress by remember { mutableStateOf(0f) }
+            var scannedCount by remember { mutableStateOf(0) }
+
+            if (isScanning) {
+                LaunchedEffect(Unit) {
+                    for (i in 1..20) {
+                        delay(100)
+                        scanProgress = i / 20f
+                        scannedCount = (i * 3.4).toInt()
+                    }
+                    isScanning = false
+                    triggerHapticFeedback(context, "double_pulse")
+                    android.widget.Toast.makeText(context, "Rescan completed! Found 68 audio files.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SpotifyBlack.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .border(1.dp, currentAccent.color.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("SCANNING SYSTEM DIRECTORIES...", color = SpotifyGrey, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("${scannedCount} files", color = currentAccent.color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    LinearProgressIndicator(
+                        progress = scanProgress,
+                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)),
+                        color = currentAccent.color,
+                        trackColor = SpotifySurfaceVariant
+                    )
+                }
+            } else {
+                Button(
+                    onClick = {
+                        isScanning = true
+                        scanProgress = 0f
+                        scannedCount = 0
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = currentAccent.color),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Rescan Music Folders", color = SpotifyBlack, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+
+        // 7. HEADSET/BLUETOOTH CATEGORY
+        SettingsCategoryCard(
+            title = "Headset & Bluetooth",
+            subtitle = "Connection responders, pause on disconnect",
+            icon = Icons.Default.Headset,
+            iconColor = currentAccent.color,
+            isExpanded = expandedCategory == "headset_bluetooth",
+            onClick = {
+                expandedCategory = if (expandedCategory == "headset_bluetooth") null else "headset_bluetooth"
+                triggerHapticFeedback(context, "snap")
+            }
+        ) {
+            // Pause on unplug
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Pause on Disconnect",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Automatically pause music when headphones are unplugged",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = pauseOnUnplug,
+                    onCheckedChange = {
+                        pauseOnUnplug = it
+                        sharedPrefs.edit().putBoolean("pref_pause_on_unplug", it).apply()
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Resume on connect
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Resume on Connection",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Resume audio immediately when Bluetooth headset links",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = resumeOnConnect,
+                    onCheckedChange = {
+                        resumeOnConnect = it
+                        sharedPrefs.edit().putBoolean("pref_resume_on_connect", it).apply()
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
+            }
+        }
+
+        // 8. SLEEP TIMER & MISC CATEGORY
+        SettingsCategoryCard(
+            title = "Sleep Timer & Lock Screen",
+            subtitle = "Sleep countdown timers, haptic levels, custom widgets",
+            icon = Icons.Default.AccessTime,
+            iconColor = currentAccent.color,
+            isExpanded = expandedCategory == "sleep_timer_misc",
+            onClick = {
+                expandedCategory = if (expandedCategory == "sleep_timer_misc") null else "sleep_timer_misc"
+                triggerHapticFeedback(context, "snap")
+            }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = null,
+                    tint = currentAccent.color,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Sleep Timer Countdown",
+                    fontWeight = FontWeight.Bold,
+                    color = SpotifyWhite,
+                    fontSize = 14.sp
+                )
+            }
+            Text(
+                text = if (sleepTimerRemaining > 0) {
+                    "Stops playback in ${formatSleepTimer(sleepTimerRemaining)}"
+                } else {
+                    "Automatically stop audio playback after duration"
+                },
+                color = if (sleepTimerRemaining > 0) currentAccent.color else SpotifyGrey,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            if (sleepTimerRemaining > 0) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SpotifyBlack.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .border(1.dp, SpotifySurfaceVariant, RoundedCornerShape(12.dp))
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "ACTIVE COUNTDOWN",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SpotifyGrey,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = formatSleepTimer(sleepTimerRemaining),
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = SpotifyWhite,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    LinearProgressIndicator(
+                        progress = progress,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(50)),
+                        color = currentAccent.color,
+                        trackColor = SpotifySurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = "Extend Timer",
+                        fontSize = 11.sp,
+                        color = SpotifyGrey,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.Start)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf(5, 10, 15).forEach { extMinutes ->
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(SpotifySurfaceVariant, RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        viewModel.extendSleepTimer(extMinutes)
+                                        triggerHapticFeedback(context, "tick")
+                                    }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "+${extMinutes}m",
+                                    color = SpotifyWhite,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            viewModel.cancelSleepTimer()
+                            triggerHapticFeedback(context, "double_pulse")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("cancel_sleep_timer_btn"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Cancel Sleep Timer", color = SpotifyWhite, fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Custom Duration",
+                            color = SpotifyWhite,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "${customMinutes.toInt()} min",
+                            color = currentAccent.color,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Slider(
+                        value = customMinutes,
+                        onValueChange = { customMinutes = it },
+                        valueRange = 1f..120f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = currentAccent.color,
+                            activeTrackColor = currentAccent.color,
+                            inactiveTrackColor = SpotifySurfaceVariant
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            viewModel.setSleepTimer(customMinutes.toInt())
+                            triggerHapticFeedback(context, "snap")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = currentAccent.color),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Start Sleep Timer",
+                            color = SpotifyBlack,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Custom Lock Screen Controls
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Lock Screen Controls",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Show responsive media panel directly on lock screen",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = lockScreenWidgetEnabled,
+                    onCheckedChange = {
+                        lockScreenWidgetEnabled = it
+                        sharedPrefs.edit().putBoolean("pref_lockscreen_widget", it).apply()
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Haptic Feedback Intensity Selector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Haptic Response Level",
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Tactile feedback pulse intensity",
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+
+                var showHapticDropdown by remember { mutableStateOf(false) }
+                Box {
+                    Button(
+                        onClick = { showHapticDropdown = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(text = hapticFeedbackIntensity, color = SpotifyWhite, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(16.dp))
+                    }
+
+                    DropdownMenu(
+                        expanded = showHapticDropdown,
+                        onDismissRequest = { showHapticDropdown = false },
+                        modifier = Modifier.background(SpotifySurfaceVariant)
+                    ) {
+                        listOf("Off", "Soft", "Crisp", "Strong").forEach { lvl ->
+                            DropdownMenuItem(
+                                text = { Text(text = lvl, color = SpotifyWhite) },
+                                onClick = {
+                                    hapticFeedbackIntensity = lvl
+                                    sharedPrefs.edit().putString("pref_haptic_intensity", lvl).apply()
+                                    showHapticDropdown = false
+                                    triggerHapticFeedback(context, if (lvl == "Strong") "double_pulse" else "snap")
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
