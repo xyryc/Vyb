@@ -46,6 +46,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -110,6 +112,346 @@ private fun getScreenOrdinal(screen: ScreenState): Int {
         is ScreenState.Library -> 2
         is ScreenState.PlaylistDetail -> 3
         is ScreenState.Settings -> 4
+    }
+}
+
+enum class AppLanguage(val displayName: String, val tag: String) {
+    ENGLISH("English 🇺🇸", "en"),
+    ESPANOL("Español 🇪🇸", "es"),
+    PALESTINE_ARABIC("العربية (فلسطين) 🇵🇸", "ar_PS"),
+    FARSI("فارسی 🇮🇷", "fa");
+
+    companion object {
+        fun fromString(value: String?): AppLanguage {
+            if (value == null) return ENGLISH
+            val cleanValue = value.lowercase()
+            return entries.find { 
+                cleanValue.contains(it.displayName.lowercase()) || 
+                it.displayName.lowercase().contains(cleanValue) ||
+                cleanValue.contains(it.tag.lowercase()) ||
+                it.tag.lowercase().contains(cleanValue) ||
+                cleanValue.contains(it.name.lowercase())
+            } ?: ENGLISH
+        }
+    }
+}
+
+object Translator {
+    private val translations = mapOf(
+        AppLanguage.ENGLISH to mapOf(
+            "home" to "Home",
+            "search" to "Search",
+            "library" to "Your Library",
+            "settings" to "Settings",
+            "recently_played" to "Recently Played",
+            "popular_playlists" to "Popular Playlists",
+            "ambient_soundscapes" to "Ambient Soundscapes",
+            "jump_back_in" to "Jump Back In",
+            "featured_artists" to "Featured Artists",
+            "heavy_rotation" to "Heavy Rotation",
+            "good_morning" to "Good morning",
+            "good_afternoon" to "Good afternoon",
+            "good_evening" to "Good evening",
+            "good_night" to "Good night",
+            "what_listen" to "What do you want to listen to?",
+            "browse_all" to "Browse all",
+            "playlists" to "Playlists",
+            "artists" to "Artists",
+            "albums" to "Albums",
+            "liked_songs" to "Liked Songs",
+            "create_playlist" to "Create Playlist",
+            "add_new_playlist" to "Add New Playlist",
+            "playlist_name" to "Playlist Name",
+            "cancel" to "Cancel",
+            "create" to "Create",
+            "empty_library" to "Your library is empty. Import songs or create a playlist!",
+            "now_playing" to "Now Playing",
+            "lyrics" to "Lyrics",
+            "sleep_timer" to "Sleep Timer",
+            "queue" to "Queue",
+            "minutes" to "minutes",
+            "set_sleep_timer" to "Set Sleep Timer",
+            "cancel_sleep_timer" to "Cancel Sleep Timer",
+            "visualizer_style" to "Visualizer Style",
+            "ambient_glow" to "Ambient Glow",
+            "blur_intensity" to "Blur Intensity",
+            "look_feel" to "Look and Feel",
+            "look_feel_sub" to "Theme accents, interface language, status controls",
+            "app_language" to "Application Language",
+            "lang_desc" to "Language for user interface elements",
+            "sys_controls" to "System Drawer Controls",
+            "sys_controls_desc" to "Control playback from system notification shade",
+            "haptic_feedback" to "Haptic Feedback",
+            "haptic_desc" to "Configure vibration feedback intensity",
+            "audio_playback" to "Audio & Playback",
+            "audio_playback_sub" to "Crossfade, replay gain, continuous stream options",
+            "crossfade" to "Crossfade",
+            "crossfade_desc" to "Transition smoothly between consecutive audio tracks",
+            "replay_gain" to "Replay Gain",
+            "replay_gain_desc" to "Normalize loudness levels across different tracks",
+            "equalizer" to "Equalizer",
+            "equalizer_desc" to "Manually fine-tune sound frequency bands",
+            "downloads_storage" to "Downloads & Storage",
+            "downloads_sub" to "Local caching, artwork resolution, connection limits",
+            "wifi_only" to "Download over Wi-Fi only",
+            "wifi_only_desc" to "Restrict heavy network synchronization to Wi-Fi",
+            "hq_art" to "High Quality Artwork",
+            "hq_art_desc" to "Fetch high resolution original cover arts",
+            "lockscreen_widget" to "Lock Screen Widget",
+            "lockscreen_widget_desc" to "Display active controls on the system lockscreen",
+            "headset_controls" to "Headset Controls",
+            "pause_on_unplug" to "Pause on unplug",
+            "pause_on_unplug_desc" to "Halt playback immediately when headset is disconnected",
+            "resume_on_connect" to "Resume on connect",
+            "resume_on_connect_desc" to "Autostart play when headphones are reattached",
+            "active_accent" to "Active Theme Accent",
+            "theme_desc" to "Choose a brand styling color highlight",
+            "off" to "Off",
+            "import_songs" to "Import Songs",
+            "import_folder" to "Import Folder",
+            "local_audio" to "Local Audio Tracks"
+        ),
+        AppLanguage.ESPANOL to mapOf(
+            "home" to "Inicio",
+            "search" to "Buscar",
+            "library" to "Tu Biblioteca",
+            "settings" to "Ajustes",
+            "recently_played" to "Escuchado recientemente",
+            "popular_playlists" to "Listas populares",
+            "ambient_soundscapes" to "Paisajes sonoros",
+            "jump_back_in" to "Volver a escuchar",
+            "featured_artists" to "Artistas destacados",
+            "heavy_rotation" to "Muy escuchado",
+            "good_morning" to "Buenos días",
+            "good_afternoon" to "Buenas tardes",
+            "good_evening" to "Buenas noches",
+            "good_night" to "Buenas noches",
+            "what_listen" to "¿Qué quieres escuchar?",
+            "browse_all" to "Explorar todo",
+            "playlists" to "Listas",
+            "artists" to "Artistas",
+            "albums" to "Álbumes",
+            "liked_songs" to "Canciones que te gustan",
+            "create_playlist" to "Crear lista de reproducción",
+            "add_new_playlist" to "Añadir nueva lista",
+            "playlist_name" to "Nombre de la lista",
+            "cancel" to "Cancelar",
+            "create" to "Crear",
+            "empty_library" to "Tu biblioteca está vacía. ¡Importa canciones o crea una lista!",
+            "now_playing" to "Sonando ahora",
+            "lyrics" to "Letras",
+            "sleep_timer" to "Temporizador",
+            "queue" to "Cola de reproducción",
+            "minutes" to "minutos",
+            "set_sleep_timer" to "Ajustar temporizador",
+            "cancel_sleep_timer" to "Cancelar temporizador",
+            "visualizer_style" to "Estilo de visualizador",
+            "ambient_glow" to "Resplandor ambiental",
+            "blur_intensity" to "Intensidad de desenfoque",
+            "look_feel" to "Aspecto y sensación",
+            "look_feel_sub" to "Acentos de tema, idioma de interfaz, controles de estado",
+            "app_language" to "Idioma de la aplicación",
+            "lang_desc" to "Idioma para los elementos de la interfaz de usuario",
+            "sys_controls" to "Controles del sistema",
+            "sys_controls_desc" to "Controlar la reproducción desde las notificaciones",
+            "haptic_feedback" to "Respuesta háptica",
+            "haptic_desc" to "Configurar la intensidad de la vibración",
+            "audio_playback" to "Audio y reproducción",
+            "audio_playback_sub" to "Transición, ganancia de reproducción, opciones de flujo continuo",
+            "crossfade" to "Transición gradual (Crossfade)",
+            "crossfade_desc" to "Transición suave entre canciones consecutivas",
+            "replay_gain" to "Ganancia de reproducción",
+            "replay_gain_desc" to "Normalizar los niveles de volumen en diferentes pistas",
+            "equalizer" to "Ecualizador",
+            "equalizer_desc" to "Ajustar manualmente las bandas de frecuencia de sonido",
+            "downloads_storage" to "Descargas y almacenamiento",
+            "downloads_sub" to "Caché local, resolución de portadas, límites de conexión",
+            "wifi_only" to "Descargar solo por Wi-Fi",
+            "wifi_only_desc" to "Restringir la sincronización pesada de red a Wi-Fi",
+            "hq_art" to "Portadas en alta calidad",
+            "hq_art_desc" to "Obtener portadas de alta resolución",
+            "lockscreen_widget" to "Widget de pantalla de bloqueo",
+            "lockscreen_widget_desc" to "Mostrar controles activos en la pantalla de bloqueo",
+            "headset_controls" to "Controles de auriculares",
+            "pause_on_unplug" to "Pausar al desconectar",
+            "pause_on_unplug_desc" to "Detener la reproducción cuando se desconecten los auriculares",
+            "resume_on_connect" to "Reanudar al conectar",
+            "resume_on_connect_desc" to "Iniciar automáticamente al conectar auriculares",
+            "active_accent" to "Color de acento activo",
+            "theme_desc" to "Elegir un color de diseño destacado",
+            "off" to "Apagado",
+            "import_songs" to "Importar canciones",
+            "import_folder" to "Importar carpeta",
+            "local_audio" to "Pistas de audio locales"
+        ),
+
+        AppLanguage.PALESTINE_ARABIC to mapOf(
+            "home" to "الرئيسية",
+            "search" to "البحث",
+            "library" to "مكتبتك",
+            "settings" to "الإعدادات",
+            "recently_played" to "شغلتوهن مؤخرًا",
+            "popular_playlists" to "قوائم تشغيل شعبية",
+            "ambient_soundscapes" to "أصوات بيئية هادية",
+            "jump_back_in" to "ارجع اسمع",
+            "featured_artists" to "فنانينا الكبار",
+            "heavy_rotation" to "الأكثر استماعاً",
+            "good_morning" to "يسعد صباحك",
+            "good_afternoon" to "يسعد مساك",
+            "good_evening" to "يسعد مساك",
+            "good_night" to "تصبح على خير",
+            "what_listen" to "شو حابب تسمع اليوم؟",
+            "browse_all" to "تصفح كل شي",
+            "playlists" to "قوائم التشغيل",
+            "artists" to "الفنانين",
+            "albums" to "الألبومات",
+            "liked_songs" to "أغاني عجبتك",
+            "create_playlist" to "عمل قائمة تشغيل",
+            "add_new_playlist" to "إضافة قائمة جديدة",
+            "playlist_name" to "اسم القائمة",
+            "cancel" to "إلغاء",
+            "create" to "عمل",
+            "empty_library" to "المكتبة فاضية. ضيف أغاني أو اعمل قائمة تشغيل!",
+            "now_playing" to "شغال هسا",
+            "lyrics" to "الكلمات",
+            "sleep_timer" to "مؤقت النوم",
+            "queue" to "الدور بالتشغيل",
+            "minutes" to "دقائق",
+            "set_sleep_timer" to "ضبط مؤقت النوم",
+            "cancel_sleep_timer" to "إلغاء مؤقت النوم",
+            "visualizer_style" to "شكل مظهر الصوت",
+            "ambient_glow" to "الوهج المحيطي",
+            "blur_intensity" to "قوة التغبيش",
+            "look_feel" to "الشكل والمظهر",
+            "look_feel_sub" to "ألوان التطبيق، لغة الواجهة، والتحكمات",
+            "app_language" to "لغة التطبيق",
+            "lang_desc" to "تغيير لغة عناصر واجهة المستخدم",
+            "sys_controls" to "تحكمات النظام",
+            "sys_controls_desc" to "التحكم بالتشغيل من برداية الإشعارات",
+            "haptic_feedback" to "الارتجاج اللمسی",
+            "haptic_desc" to "تعديل قوة هزة اللمس",
+            "audio_playback" to "الصوت والتشغيل",
+            "audio_playback_sub" to "التداخل، موازنة الصوت، وخيارات البث",
+            "crossfade" to "تداخل الأصوات (Crossfade)",
+            "crossfade_desc" to "انتقال ناعم بين الأغاني ورا بعض",
+            "replay_gain" to "توحيد الصوت",
+            "replay_gain_desc" to "موازنة علو الصوت بين الأغاني المختلفة",
+            "equalizer" to "معادل الصوت",
+            "equalizer_desc" to "تعديل يدوي لترددات الصوت والموجات",
+            "downloads_storage" to "التنزيلات والتخزين",
+            "downloads_sub" to "التخزين المؤقت، جودة غلاف الأغنية، وحدود الاتصال",
+            "wifi_only" to "تنزيل بس ع الواي فاي",
+            "wifi_only_desc" to "مزامنة التحميلات الثقيلة بس ع الواي فاي",
+            "hq_art" to "أغلفة بجودة عالية",
+            "hq_art_desc" to "جلب غلاف الألبوم الأصلي بالدقة الكاملة",
+            "lockscreen_widget" to "أداة شاشة القفل",
+            "lockscreen_widget_desc" to "عرض عناصر التحكم على شاشة القفل",
+            "headset_controls" to "تحكمات السماعة",
+            "pause_on_unplug" to "توقيف عند الفصل",
+            "pause_on_unplug_desc" to "توقيف الأغنية فوراً لما تفصل السماعة",
+            "resume_on_connect" to "تشغيل عند التوصيل",
+            "resume_on_connect_desc" to "تشغيل الموسيقى تلقائياً لما ترجع تشبك السماعة",
+            "active_accent" to "لون التطبيق النشط",
+            "theme_desc" to "اختر لون مميز للتطبيق",
+            "off" to "إيقاف",
+            "import_songs" to "استيراد الأغاني",
+            "import_folder" to "استيراد مجلد",
+            "local_audio" to "المقاطع الصوتية المحلية"
+        ),
+        AppLanguage.FARSI to mapOf(
+            "home" to "خانه",
+            "search" to "جستجو",
+            "library" to "کتابخانه شما",
+            "settings" to "تنظیمات",
+            "recently_played" to "اخیراً پخش شده",
+            "popular_playlists" to "پلی‌لیست‌های محبوب",
+            "ambient_soundscapes" to "صداهای آرامش‌بخش محیطی",
+            "jump_back_in" to "ادامه شنیدن",
+            "featured_artists" to "هنرمندان برگزیده",
+            "heavy_rotation" to "بیشترین پخش",
+            "good_morning" to "صبح بخیر",
+            "good_afternoon" to "ظهر بخیر",
+            "good_evening" to "عصر بخیر",
+            "good_night" to "شب بخیر",
+            "what_listen" to "دوست داری چی گوش بدی؟",
+            "browse_all" to "مرور همه دسته‌ها",
+            "playlists" to "پلی‌لیست‌ها",
+            "artists" to "هنرمندان",
+            "albums" to "آلبوم‌ها",
+            "liked_songs" to "آهنگ‌های پسندیده",
+            "create_playlist" to "ساخت پلی‌لیست",
+            "add_new_playlist" to "افزودن پلی‌لیست جدید",
+            "playlist_name" to "نام پلی‌لیست",
+            "cancel" to "لغو",
+            "create" to "ایجاد",
+            "empty_library" to "کتابخانه شما خالی است. آهنگ وارد کنید یا پلی‌لیست بسازید!",
+            "now_playing" to "در حال پخش",
+            "lyrics" to "متن آهنگ",
+            "sleep_timer" to "تایمر خواب",
+            "queue" to "صف پخش",
+            "minutes" to "دقیقه",
+            "set_sleep_timer" to "تنظیم تایمر خواب",
+            "cancel_sleep_timer" to "لغو تایمر خواب",
+            "visualizer_style" to "سبک رقص نور",
+            "ambient_glow" to "تابش محیطی",
+            "blur_intensity" to "شدت محوشدگی",
+            "look_feel" to "ظاهر و احساس",
+            "look_feel_sub" to "طرح رنگی، زبان برنامه، و کنترل‌های وضعیت",
+            "app_language" to "زبان برنامه",
+            "lang_desc" to "زبان مورد استفاده در بخش‌های مختلف برنامه",
+            "sys_controls" to "کنترل‌های سیستم",
+            "sys_controls_desc" to "کنترل پخش از منوی اعلان‌های گوشی",
+            "haptic_feedback" to "بازخورد لمسی",
+            "haptic_desc" to "تنظیم شدت لرزش هنگام لمس",
+            "audio_playback" to "صدا و پخش",
+            "audio_playback_sub" to "درهم‌آمیزی، تراز صدا و پخش مداوم",
+            "crossfade" to "درهم‌آمیزی (Crossfade)",
+            "crossfade_desc" to "گذار نرم و تدریجی بین آهنگ‌های پشت‌سرهم",
+            "replay_gain" to "تنظیم تراز صدا",
+            "replay_gain_desc" to "یکنواخت‌سازی بلندی صدا در آهنگ‌های مختلف",
+            "equalizer" to "اکولایزر",
+            "equalizer_desc" to "تنظیم دستی فرکانس‌های مختلف صدا",
+            "downloads_storage" to "دانلود و ذخیره‌سازی",
+            "downloads_sub" to "حافظه موقت، کیفیت کاورها و محدودیت اتصال",
+            "wifi_only" to "دانلود فقط با Wi-Fi",
+            "wifi_only_desc" to "محدود کردن دانلودهای سنگین به شبکه وای‌افای",
+            "hq_art" to "کاورهای باکیفیت",
+            "hq_art_desc" to "دریافت کاور آلبوم‌ها با بالاترین کیفیت اصلی",
+            "lockscreen_widget" to "ویجت صفحه قفل",
+            "lockscreen_widget_desc" to "نمایش دکمه‌های کنترل موسیقی در صفحه قفل گوشی",
+            "headset_controls" to "کنترل‌های هدفون",
+            "pause_on_unplug" to "توقف هنگام قطع اتصال",
+            "pause_on_unplug_desc" to "توقف فوری پخش هنگام جدا شدن هدفون",
+            "resume_on_connect" to "شروع هنگام اتصال مجدد",
+            "resume_on_connect_desc" to "پخش خودکار موسیقی هنگام اتصال دوباره هدفون",
+            "active_accent" to "رنگ اصلی برنامه",
+            "theme_desc" to "یک رنگ برای بخش‌های شاخص برنامه انتخاب کنید",
+            "off" to "خاموش",
+            "import_songs" to "وارد کردن آهنگ‌ها",
+            "import_folder" to "وارد کردن پوشه",
+            "local_audio" to "آهنگ‌های صوتی محلی"
+        )
+    )
+
+    fun translate(key: String, lang: AppLanguage): String {
+        return translations[lang]?.get(key) ?: translations[AppLanguage.ENGLISH]?.get(key) ?: key
+    }
+}
+
+val LocalAppLanguage = compositionLocalOf { "English 🇺🇸" }
+
+fun t(key: String, languageStr: String): String {
+    val lang = AppLanguage.fromString(languageStr)
+    return Translator.translate(key, lang)
+}
+
+fun getLanguageWithFlag(savedLang: String): String {
+    return when {
+        savedLang.contains("English") || savedLang.contains("en") -> "English 🇺🇸"
+        savedLang.contains("Español") || savedLang.contains("es") -> "Español 🇪🇸"
+        savedLang.contains("العربية") || savedLang.contains("ar") || savedLang.contains("palestine") -> "العربية (فلسطين) 🇵🇸"
+        savedLang.contains("فارسی") || savedLang.contains("Farsi") || savedLang.contains("Persian") || savedLang.contains("fa") -> "فارسی 🇮🇷"
+        else -> "English 🇺🇸"
     }
 }
 
@@ -202,6 +544,20 @@ fun MainAppScreen(
     )
 ) {
     val context = LocalContext.current
+    val sharedPrefs = remember(context) {
+        context.getSharedPreferences("music_player_settings", android.content.Context.MODE_PRIVATE)
+    }
+    var language by remember {
+        val saved = sharedPrefs.getString("pref_language", "English 🇺🇸") ?: "English 🇺🇸"
+        mutableStateOf(getLanguageWithFlag(saved))
+    }
+    val currentAppLanguage = AppLanguage.fromString(language)
+    val layoutDirection = if (currentAppLanguage == AppLanguage.PALESTINE_ARABIC || 
+                              currentAppLanguage == AppLanguage.FARSI) {
+        LayoutDirection.Rtl
+    } else {
+        LayoutDirection.Ltr
+    }
 
     val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
@@ -247,9 +603,9 @@ fun MainAppScreen(
     val blurIntensity by viewModel.blurIntensity.collectAsState()
 
     // Drag-to-expand states
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    var screenHeightPx by remember { mutableStateOf(with(density) { configuration.screenHeightDp.dp.toPx() }) }
+    val displayMetrics = context.resources.displayMetrics
+    var screenHeightPx by remember { mutableStateOf(displayMetrics.heightPixels.toFloat()) }
 
     var dragOffset by remember { mutableStateOf<Float?>(null) }
     val targetOffset = if (isPlayerExpanded) 0f else screenHeightPx
@@ -320,14 +676,18 @@ fun MainAppScreen(
         animationSpec = tween(durationMillis = 1000)
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SpotifyBlack)
-            .onSizeChanged { size ->
-                screenHeightPx = size.height.toFloat()
-            }
+    CompositionLocalProvider(
+        LocalAppLanguage provides language,
+        LocalLayoutDirection provides layoutDirection
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SpotifyBlack)
+                .onSizeChanged { size ->
+                    screenHeightPx = size.height.toFloat()
+                }
+        ) {
         // Dynamic Backdrop Gradient
         if (currentTrack != null) {
             Box(
@@ -355,7 +715,7 @@ fun MainAppScreen(
                         selected = currentScreen is ScreenState.Home,
                         onClick = { viewModel.navigateTo(ScreenState.Home) },
                         icon = { Icon(if (currentScreen is ScreenState.Home) Icons.Filled.Home else Icons.Outlined.Home, contentDescription = "Home") },
-                        label = { Text("Home", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
+                        label = { Text(t("home", language), fontWeight = FontWeight.Bold, fontSize = 11.sp) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = SpotifyGreen,
                             selectedTextColor = SpotifyGreen,
@@ -368,7 +728,7 @@ fun MainAppScreen(
                         selected = currentScreen is ScreenState.Search,
                         onClick = { viewModel.navigateTo(ScreenState.Search) },
                         icon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
-                        label = { Text("Search", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
+                        label = { Text(t("search", language), fontWeight = FontWeight.Bold, fontSize = 11.sp) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = SpotifyGreen,
                             selectedTextColor = SpotifyGreen,
@@ -381,7 +741,7 @@ fun MainAppScreen(
                         selected = currentScreen is ScreenState.Library || currentScreen is ScreenState.PlaylistDetail,
                         onClick = { viewModel.navigateTo(ScreenState.Library) },
                         icon = { Icon(if (currentScreen is ScreenState.Library) Icons.AutoMirrored.Filled.List else Icons.AutoMirrored.Outlined.List, contentDescription = "Library") },
-                        label = { Text("Your Library", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
+                        label = { Text(t("library", language), fontWeight = FontWeight.Bold, fontSize = 11.sp) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = SpotifyGreen,
                             selectedTextColor = SpotifyGreen,
@@ -394,7 +754,7 @@ fun MainAppScreen(
                         selected = currentScreen is ScreenState.Settings,
                         onClick = { viewModel.navigateTo(ScreenState.Settings) },
                         icon = { Icon(if (currentScreen is ScreenState.Settings) Icons.Filled.Settings else Icons.Outlined.Settings, contentDescription = "Settings") },
-                        label = { Text("Settings", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
+                        label = { Text(t("settings", language), fontWeight = FontWeight.Bold, fontSize = 11.sp) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = SpotifyGreen,
                             selectedTextColor = SpotifyGreen,
@@ -481,7 +841,9 @@ fun MainAppScreen(
                         )
 
                         is ScreenState.Settings -> SettingsScreen(
-                            viewModel = viewModel
+                            viewModel = viewModel,
+                            language = language,
+                            onLanguageChange = { language = it }
                         )
                     }
                 }
@@ -617,6 +979,7 @@ fun MainAppScreen(
                 onDismiss = { showEqualizer = false }
             )
         }
+    }
     }
 }
 
@@ -2311,6 +2674,10 @@ fun ExpandedPlayerScreen(
     var showLyrics by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    val configuration = LocalConfiguration.current
+    val screenHeightDp = configuration.screenHeightDp
+    val coverSize = if (screenHeightDp < 700) 220.dp else if (screenHeightDp < 800) 260.dp else 320.dp
+
     val infiniteTransition = rememberInfiniteTransition(label = "ambient_glow")
     val angle by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -2486,7 +2853,7 @@ fun ExpandedPlayerScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(320.dp)
+                    .height(coverSize)
                     .testTag("player_center_art_area"),
                 contentAlignment = Alignment.Center
             ) {
@@ -2509,7 +2876,7 @@ fun ExpandedPlayerScreen(
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(320.dp)
+                            .size(coverSize)
                             .clip(RoundedCornerShape(8.dp))
                             .shadow(8.dp)
                             .clickable { showLyrics = true }
@@ -3354,6 +3721,8 @@ fun SettingsCategoryCard(
 @Composable
 fun SettingsScreen(
     viewModel: MusicViewModel,
+    language: String,
+    onLanguageChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
@@ -3387,9 +3756,6 @@ fun SettingsScreen(
     }
 
     // New configuration states mapping the reference layout
-    var language by remember {
-        mutableStateOf(sharedPrefs.getString("pref_language", "English") ?: "English")
-    }
     var showNotifications by remember {
         mutableStateOf(sharedPrefs.getBoolean("pref_notifications", true))
     }
@@ -3435,7 +3801,7 @@ fun SettingsScreen(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Settings",
+            text = t("settings", language),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = SpotifyWhite,
@@ -3444,8 +3810,8 @@ fun SettingsScreen(
 
         // 1. LOOK AND FEEL CATEGORY
         SettingsCategoryCard(
-            title = "Look and Feel",
-            subtitle = "Theme accents, interface language, status controls",
+            title = t("look_feel", language),
+            subtitle = t("look_feel_sub", language),
             icon = Icons.Default.Palette,
             iconColor = currentAccent.color,
             isExpanded = expandedCategory == "look_and_feel",
@@ -3675,13 +4041,13 @@ fun SettingsScreen(
             ) {
                 Column {
                     Text(
-                        text = "Application Language",
+                        text = t("app_language", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Language for user interface elements",
+                        text = t("lang_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -3705,11 +4071,16 @@ fun SettingsScreen(
                         onDismissRequest = { showLangDropdown = false },
                         modifier = Modifier.background(SpotifySurfaceVariant)
                     ) {
-                        listOf("English", "Español", "Français", "Deutsch", "日本語").forEach { lang ->
+                        listOf(
+                            "English 🇺🇸",
+                            "Español 🇪🇸",
+                            "العربية (فلسطين) 🇵🇸",
+                            "فارسی 🇮🇷"
+                        ).forEach { lang ->
                             DropdownMenuItem(
                                 text = { Text(text = lang, color = SpotifyWhite) },
                                 onClick = {
-                                    language = lang
+                                    onLanguageChange(lang)
                                     sharedPrefs.edit().putString("pref_language", lang).apply()
                                     showLangDropdown = false
                                     triggerHapticFeedback(context, "tick")
@@ -3760,8 +4131,8 @@ fun SettingsScreen(
 
         // 2. AUDIO CATEGORY
         SettingsCategoryCard(
-            title = "Audio Output & Effects",
-            subtitle = "Equalizer studio, crossfade overlaps, volume levels",
+            title = t("audio_playback", language),
+            subtitle = t("audio_playback_sub", language),
             icon = Icons.Default.Tune,
             iconColor = currentAccent.color,
             isExpanded = expandedCategory == "audio",
