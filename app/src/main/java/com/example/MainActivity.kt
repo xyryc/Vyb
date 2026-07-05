@@ -86,6 +86,7 @@ import com.example.viewmodel.ScreenState
 import java.util.Calendar
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -2298,18 +2299,71 @@ fun ExpandedPlayerScreen(
     var showLyrics by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    val infiniteTransition = rememberInfiniteTransition(label = "ambient_glow")
+    val angle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(25000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "angle"
+    )
+
+    val radians = angle * (PI.toFloat() / 180f)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        dominantColor,
-                        secondaryColor,
-                        SpotifyBlack
-                    )
+            .drawBehind {
+                val width = size.width
+                val height = size.height
+
+                // Draw base dark color
+                drawRect(color = SpotifyBlack)
+
+                // Circle 1 (Dominant color) - slow circular orbital path
+                val radius1 = width * 1.3f
+                val center1X = width / 2f + (width * 0.35f * cos(radians))
+                val center1Y = height / 3f + (height * 0.15f * sin(radians))
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(dominantColor.copy(alpha = 0.5f), Color.Transparent),
+                        center = Offset(center1X, center1Y),
+                        radius = radius1
+                    ),
+                    radius = radius1,
+                    center = Offset(center1X, center1Y)
                 )
-            )
+
+                // Circle 2 (Secondary color) - opposite orbital path
+                val radius2 = width * 1.1f
+                val center2X = width / 2f - (width * 0.3f * cos(radians + PI.toFloat() / 2f))
+                val center2Y = height * 2f / 3f - (height * 0.12f * sin(radians + PI.toFloat() / 2f))
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(secondaryColor.copy(alpha = 0.45f), Color.Transparent),
+                        center = Offset(center2X, center2Y),
+                        radius = radius2
+                    ),
+                    radius = radius2,
+                    center = Offset(center2X, center2Y)
+                )
+
+                // Circle 3 (Theme Accent Color) - dynamic sinusoidal shift
+                val radius3 = width * 0.9f
+                val center3X = width / 2f + (width * 0.25f * sin(radians * 1.3f))
+                val center3Y = height / 2f + (height * 0.1f * cos(radians * 1.3f))
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(themeAccent.color.copy(alpha = 0.3f), Color.Transparent),
+                        center = Offset(center3X, center3Y),
+                        radius = radius3
+                    ),
+                    radius = radius3,
+                    center = Offset(center3X, center3Y)
+                )
+            }
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(24.dp)
@@ -2439,163 +2493,181 @@ fun ExpandedPlayerScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Track details (Title / Artist)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = track.title,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = SpotifyWhite,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = track.artist,
-                        fontSize = 16.sp,
-                        color = SpotifyGrey,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                IconButton(
-                    onClick = {
-                        triggerHapticFeedback(context, if (track.isLiked) "snap" else "double_pulse")
-                        onLikeClick()
-                    },
-                    modifier = Modifier.testTag("player_like_btn")
-                ) {
-                    Icon(
-                        imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Like",
-                        tint = if (track.isLiked) SpotifyGreen else SpotifyWhite,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Progress Slider
-            var isDragging by remember { mutableStateOf(false) }
-            var dragValue by remember { mutableStateOf(0f) }
-            val displayPosition = if (isDragging) {
-                (dragValue * duration).toLong()
-            } else {
-                position
-            }
-
-            val currentProgressValue = if (isDragging) dragValue else (if (duration > 0) position.toFloat() / duration else 0f)
-            Slider(
-                value = currentProgressValue,
-                onValueChange = {
-                    val oldPercent = (currentProgressValue * 100).toInt()
-                    val newPercent = (it * 100).toInt()
-                    if (newPercent != oldPercent) {
-                        triggerHapticFeedback(context, "tick")
-                    }
-                    isDragging = true
-                    dragValue = it
-                },
-                onValueChangeFinished = {
-                    isDragging = false
-                    onSeek((dragValue * duration).toLong())
-                },
-                colors = SliderDefaults.colors(
-                    activeTrackColor = SpotifyGreen,
-                    inactiveTrackColor = SpotifySurfaceVariant,
-                    thumbColor = SpotifyGreen
-                ),
+            // Bottom Glassmorphic Control Panel
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("player_slider")
-            )
-
-            // Progress times
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(formatDuration(displayPosition), color = SpotifyGrey, fontSize = 12.sp)
-                Text(formatDuration(duration), color = SpotifyGrey, fontSize = 12.sp)
-            }
-
-            Spacer(modifier = Modifier.weight(0.5f))
-
-            // Controls (Shuffle, Prev, Play/Pause, Next, Repeat)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                IconButton(
-                    onClick = onShuffleClick,
-                    modifier = Modifier.testTag("player_shuffle_btn")
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Shuffle,
-                        contentDescription = "Shuffle",
-                        tint = if (isShuffleEnabled) SpotifyGreen else SpotifyWhite,
-                        modifier = Modifier.size(24.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.08f))
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(24.dp)
                     )
-                }
+                    .padding(20.dp)
+                    .testTag("player_controls_glass_card")
+            ) {
+                Column {
+                    // Track details (Title / Artist)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = track.title,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SpotifyWhite,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = track.artist,
+                                fontSize = 16.sp,
+                                color = SpotifyGrey,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
-                IconButton(
-                    onClick = onPreviousClick,
-                    modifier = Modifier.testTag("player_prev_btn")
-                ) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", tint = SpotifyWhite, modifier = Modifier.size(40.dp))
-                }
-
-                // Play / Pause Circle
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(36.dp))
-                        .background(SpotifyWhite)
-                        .clickable(onClick = onPlayPauseClick)
-                        .testTag("player_play_pause_btn")
-                ) {
-                    if (isBuffering) {
-                        CircularProgressIndicator(
-                            color = SpotifyBlack,
-                            strokeWidth = 3.dp,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    } else {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDescription = if (isPlaying) "Pause" else "Play",
-                            tint = SpotifyBlack,
-                            modifier = Modifier.size(36.dp)
-                        )
+                        IconButton(
+                            onClick = {
+                                triggerHapticFeedback(context, if (track.isLiked) "snap" else "double_pulse")
+                                onLikeClick()
+                            },
+                            modifier = Modifier.testTag("player_like_btn")
+                        ) {
+                            Icon(
+                                imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                contentDescription = "Like",
+                                tint = if (track.isLiked) SpotifyGreen else SpotifyWhite,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
-                }
 
-                IconButton(
-                    onClick = onNextClick,
-                    modifier = Modifier.testTag("player_next_btn")
-                ) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = SpotifyWhite, modifier = Modifier.size(40.dp))
-                }
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                IconButton(
-                    onClick = onRepeatClick,
-                    modifier = Modifier.testTag("player_repeat_btn")
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Repeat,
-                        contentDescription = "Repeat",
-                        tint = if (isRepeatEnabled) SpotifyGreen else SpotifyWhite,
-                        modifier = Modifier.size(24.dp)
+                    // Progress Slider
+                    var isDragging by remember { mutableStateOf(false) }
+                    var dragValue by remember { mutableStateOf(0f) }
+                    val displayPosition = if (isDragging) {
+                        (dragValue * duration).toLong()
+                    } else {
+                        position
+                    }
+
+                    val currentProgressValue = if (isDragging) dragValue else (if (duration > 0) position.toFloat() / duration else 0f)
+                    Slider(
+                        value = currentProgressValue,
+                        onValueChange = {
+                            val oldPercent = (currentProgressValue * 100).toInt()
+                            val newPercent = (it * 100).toInt()
+                            if (newPercent != oldPercent) {
+                                triggerHapticFeedback(context, "tick")
+                            }
+                            isDragging = true
+                            dragValue = it
+                        },
+                        onValueChangeFinished = {
+                            isDragging = false
+                            onSeek((dragValue * duration).toLong())
+                        },
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = SpotifyGreen,
+                            inactiveTrackColor = SpotifySurfaceVariant,
+                            thumbColor = SpotifyGreen
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(18.dp)
+                            .testTag("player_slider")
                     )
+
+                    // Progress times
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(formatDuration(displayPosition), color = SpotifyGrey, fontSize = 12.sp)
+                        Text(formatDuration(duration), color = SpotifyGrey, fontSize = 12.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Controls (Shuffle, Prev, Play/Pause, Next, Repeat)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        IconButton(
+                            onClick = onShuffleClick,
+                            modifier = Modifier.testTag("player_shuffle_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Shuffle,
+                                contentDescription = "Shuffle",
+                                tint = if (isShuffleEnabled) SpotifyGreen else SpotifyWhite,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onPreviousClick,
+                            modifier = Modifier.testTag("player_prev_btn")
+                        ) {
+                            Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", tint = SpotifyWhite, modifier = Modifier.size(40.dp))
+                        }
+
+                        // Play / Pause Circle
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(SpotifyWhite)
+                                .clickable(onClick = onPlayPauseClick)
+                                .testTag("player_play_pause_btn")
+                        ) {
+                            if (isBuffering) {
+                                CircularProgressIndicator(
+                                    color = SpotifyBlack,
+                                    strokeWidth = 3.dp,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                    contentDescription = if (isPlaying) "Pause" else "Play",
+                                    tint = SpotifyBlack,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onNextClick,
+                            modifier = Modifier.testTag("player_next_btn")
+                        ) {
+                            Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = SpotifyWhite, modifier = Modifier.size(40.dp))
+                        }
+
+                        IconButton(
+                            onClick = onRepeatClick,
+                            modifier = Modifier.testTag("player_repeat_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Repeat,
+                                contentDescription = "Repeat",
+                                tint = if (isRepeatEnabled) SpotifyGreen else SpotifyWhite,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -4655,6 +4727,7 @@ fun LyricsPanel(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(SpotifyBlack.copy(alpha = 0.55f))
+            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
