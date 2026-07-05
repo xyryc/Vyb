@@ -62,6 +62,10 @@ import coil.request.ImageRequest
 import coil.request.SuccessResult
 import android.graphics.drawable.BitmapDrawable
 import androidx.palette.graphics.Palette
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.os.Build
 import com.example.data.PlaylistEntity
 import com.example.data.TrackEntity
 import com.example.ui.theme.MyApplicationTheme
@@ -227,6 +231,15 @@ fun MainAppScreen(
     val searchResults by viewModel.searchResults.collectAsState()
     val selectedPlaylistTracks by viewModel.selectedPlaylistTracks.collectAsState()
     val isPlayerExpanded by viewModel.isPlayerExpanded.collectAsState()
+
+    var hasInitializedPlayerState by remember { mutableStateOf(false) }
+    LaunchedEffect(isPlayerExpanded) {
+        if (hasInitializedPlayerState) {
+            triggerHapticFeedback(context, "snap")
+        } else {
+            hasInitializedPlayerState = true
+        }
+    }
     val showCreatePlaylistDialog by viewModel.showCreatePlaylistDialog.collectAsState()
     val showAddToPlaylistDialog by viewModel.showAddToPlaylistDialog.collectAsState()
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
@@ -2106,6 +2119,7 @@ fun MiniPlayer(
     onSeek: (Long) -> Unit,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     Card(
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = SpotifySurface),
@@ -2161,7 +2175,10 @@ fun MiniPlayer(
                 }
 
                 IconButton(
-                    onClick = onLikeClick,
+                    onClick = {
+                        triggerHapticFeedback(context, if (track.isLiked) "snap" else "double_pulse")
+                        onLikeClick()
+                    },
                     modifier = Modifier.testTag("mini_like_btn")
                 ) {
                     Icon(
@@ -2225,6 +2242,11 @@ fun MiniPlayer(
             Slider(
                 value = currentProgress.coerceIn(0f, 1f),
                 onValueChange = {
+                    val oldPercent = (currentProgress * 100).toInt()
+                    val newPercent = (it * 100).toInt()
+                    if (newPercent != oldPercent) {
+                        triggerHapticFeedback(context, "tick")
+                    }
                     isDragging = true
                     dragPosition = it
                 },
@@ -2274,6 +2296,7 @@ fun ExpandedPlayerScreen(
 ) {
     var showVisualizer by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Box(
         modifier = Modifier
@@ -2442,7 +2465,10 @@ fun ExpandedPlayerScreen(
                 }
 
                 IconButton(
-                    onClick = onLikeClick,
+                    onClick = {
+                        triggerHapticFeedback(context, if (track.isLiked) "snap" else "double_pulse")
+                        onLikeClick()
+                    },
                     modifier = Modifier.testTag("player_like_btn")
                 ) {
                     Icon(
@@ -2465,9 +2491,15 @@ fun ExpandedPlayerScreen(
                 position
             }
 
+            val currentProgressValue = if (isDragging) dragValue else (if (duration > 0) position.toFloat() / duration else 0f)
             Slider(
-                value = if (isDragging) dragValue else (if (duration > 0) position.toFloat() / duration else 0f),
+                value = currentProgressValue,
                 onValueChange = {
+                    val oldPercent = (currentProgressValue * 100).toInt()
+                    val newPercent = (it * 100).toInt()
+                    if (newPercent != oldPercent) {
+                        triggerHapticFeedback(context, "tick")
+                    }
                     isDragging = true
                     dragValue = it
                 },
@@ -4761,3 +4793,49 @@ fun LyricsPanel(
         }
     }
 }
+
+fun triggerHapticFeedback(context: android.content.Context, type: String) {
+    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vibratorManager = context.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+        vibratorManager?.defaultVibrator
+    } else {
+        @Suppress("DEPRECATION")
+        context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator
+    }
+
+    if (vibrator == null || !vibrator.hasVibrator()) return
+
+    try {
+        when (type) {
+            "tick" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(10)
+                }
+            }
+            "snap" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(25)
+                }
+            }
+            "double_pulse" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val timings = longArrayOf(0, 30, 80, 40)
+                    val amplitudes = intArrayOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE)
+                    vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(longArrayOf(0, 30, 80, 40), -1)
+                }
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
