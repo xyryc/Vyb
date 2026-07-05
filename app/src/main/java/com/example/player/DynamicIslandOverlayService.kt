@@ -54,14 +54,6 @@ import kotlinx.coroutines.*
 
 class DynamicIslandOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
-    override fun attachBaseContext(newBase: Context?) {
-        if (newBase != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            super.attachBaseContext(newBase.createAttributionContext("music_playback"))
-        } else {
-            super.attachBaseContext(newBase)
-        }
-    }
-
     companion object {
         const val ACTION_SHOW = "com.example.player.action.SHOW"
         const val ACTION_HIDE = "com.example.player.action.HIDE"
