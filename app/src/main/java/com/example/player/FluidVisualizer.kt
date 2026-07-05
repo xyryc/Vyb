@@ -23,7 +23,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.MainActivity
 import com.example.data.TrackEntity
 import kotlinx.coroutines.isActive
 import kotlin.math.cos
@@ -44,7 +43,8 @@ private data class VisualizerParticle(
 fun FluidVisualizer(
     track: TrackEntity,
     isPlaying: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    visualizerStyle: String = "Fluid Particles"
 ) {
     // Continuous time variable that advances based on playing state
     var animTime by remember { mutableStateOf(0f) }
@@ -134,69 +134,203 @@ fun FluidVisualizer(
                 )
             )
 
-            // 2. Draw Overlapping Fluid Waves (Sine/Cosine modulation of circular radius)
-            // Draw Wave 1 (Deep Bass - Purple)
-            drawFluidWave(
-                cx = cx, cy = cy,
-                baseRadius = 140.dp.toPx(),
-                waveAmp = 22.dp.toPx() * baseAmp,
-                frequency = 6,
-                timePhase = animTime * 2.2f,
-                color = Color(0xFF8A2BE2).copy(alpha = 0.28f),
-                outlineColor = Color(0xFFD8BFD8).copy(alpha = 0.4f)
-            )
+            when (visualizerStyle) {
+                "Sine Wave" -> {
+                    // Draw flowing horizontal ribbons / sine waves crossing the screen
+                    // Ribbon 1 (Bass - Purple)
+                    drawHorizontalSineWave(
+                        width = width,
+                        cy = cy,
+                        amplitude = 40.dp.toPx() * baseAmp,
+                        frequency = 1.2f,
+                        timePhase = animTime * 2.2f,
+                        color = Color(0xFF8A2BE2).copy(alpha = 0.5f),
+                        strokeWidth = 6.dp.toPx()
+                    )
 
-            // Draw Wave 2 (Melody - Cyan/Turquoise)
-            drawFluidWave(
-                cx = cx, cy = cy,
-                baseRadius = 125.dp.toPx(),
-                waveAmp = 18.dp.toPx() * midAmp,
-                frequency = 8,
-                timePhase = -animTime * 3.1f,
-                color = Color(0xFF00F2FE).copy(alpha = 0.22f),
-                outlineColor = Color(0xFF4FACFE).copy(alpha = 0.45f)
-            )
+                    // Ribbon 2 (Mids - Cyan)
+                    drawHorizontalSineWave(
+                        width = width,
+                        cy = cy,
+                        amplitude = 30.dp.toPx() * midAmp,
+                        frequency = 2.4f,
+                        timePhase = -animTime * 3.1f,
+                        color = Color(0xFF00F2FE).copy(alpha = 0.6f),
+                        strokeWidth = 4.dp.toPx()
+                    )
 
-            // Draw Wave 3 (Highs/Treble - Magenta)
-            drawFluidWave(
-                cx = cx, cy = cy,
-                baseRadius = 110.dp.toPx(),
-                waveAmp = 14.dp.toPx() * trebleAmp,
-                frequency = 11,
-                timePhase = animTime * 4.4f,
-                color = Color(0xFFF35588).copy(alpha = 0.18f),
-                outlineColor = Color(0xFFFF007F).copy(alpha = 0.5f)
-            )
+                    // Ribbon 3 (Highs - Hot Pink)
+                    drawHorizontalSineWave(
+                        width = width,
+                        cy = cy,
+                        amplitude = 20.dp.toPx() * trebleAmp,
+                        frequency = 3.8f,
+                        timePhase = animTime * 4.4f,
+                        color = Color(0xFFFF007F).copy(alpha = 0.7f),
+                        strokeWidth = 3.dp.toPx()
+                    )
 
-            // 3. Draw Floating & Orbiting Particles
-            particles.forEach { particle ->
-                val dynamicAngle = particle.initialAngle + animTime * particle.speed
-                val wobble = sin(animTime * 3f + particle.phaseOffset) * 12f
-                val dynamicRadius = particle.baseRadius.dp.toPx() * (1f + 0.12f * baseAmp) + wobble
-                
-                val px = cx + dynamicRadius * cos(dynamicAngle)
-                val py = cy + dynamicRadius * sin(dynamicAngle)
-                
-                // Draw particle with glow
-                drawCircle(
-                    color = particle.color,
-                    radius = particle.size.dp.toPx(),
-                    center = Offset(px, py)
-                )
-                
-                // Subtle outer halo for active play state
-                if (isPlaying && particle.size > 4f) {
+                    // Draw some small glowing floating particles sliding on sine wave paths
+                    for (i in 0 until 12) {
+                        val speed = 0.05f + (i % 3) * 0.04f
+                        val progress = (animTime * speed + (i * 0.1f)) % 1f
+                        val px = progress * width
+                        val edgeTaper = sin(progress * PI.toFloat())
+                        val waveAmp = when (i % 3) {
+                            0 -> 40.dp.toPx() * baseAmp
+                            1 -> 30.dp.toPx() * midAmp
+                            else -> 20.dp.toPx() * trebleAmp
+                        }
+                        val waveFreq = when (i % 3) {
+                            0 -> 1.2f
+                            1 -> 2.4f
+                            else -> 3.8f
+                        }
+                        val wavePhase = when (i % 3) {
+                            0 -> animTime * 2.2f
+                            1 -> -animTime * 3.1f
+                            else -> animTime * 4.4f
+                        }
+                        val py = cy + waveAmp * sin(px * (2f * PI.toFloat() / width) * waveFreq + wavePhase) * edgeTaper
+                        val pColor = when (i % 3) {
+                            0 -> Color(0xFF8A2BE2).copy(alpha = 0.8f)
+                            1 -> Color(0xFF00F2FE).copy(alpha = 0.8f)
+                            else -> Color(0xFFFF007F).copy(alpha = 0.8f)
+                        }
+                        drawCircle(
+                            color = pColor,
+                            radius = (3f + (i % 3) * 2f).dp.toPx(),
+                            center = Offset(px, py)
+                        )
+                    }
+                }
+                "Bar Spectrum" -> {
+                    // Draw a radial audio spectrum around the spinning album cover art
+                    val N = 64
+                    val startRadius = 94.dp.toPx() // just outside 175.dp diameter cover art
+                    
+                    // Draw a subtle circular base ring
                     drawCircle(
-                        color = particle.color.copy(alpha = 0.2f),
-                        radius = particle.size.dp.toPx() * 2f,
-                        center = Offset(px, py),
+                        color = Color.White.copy(alpha = 0.12f),
+                        radius = startRadius,
+                        center = Offset(cx, cy),
                         style = Stroke(width = 1.dp.toPx())
                     )
+
+                    for (i in 0 until N) {
+                        val angle = i * (2f * PI.toFloat() / N)
+                        val amp = when {
+                            i < N / 4 -> {
+                                val t = i.toFloat() / (N / 4)
+                                lerp(baseAmp, midAmp, t)
+                            }
+                            i < 3 * N / 4 -> {
+                                val t = (i - N / 4).toFloat() / (N / 2)
+                                lerp(midAmp, trebleAmp, t)
+                            }
+                            else -> {
+                                val t = (i - 3 * N / 4).toFloat() / (N / 4)
+                                lerp(trebleAmp, baseAmp * 0.3f, t)
+                            }
+                        }
+
+                        // Dynamic high-frequency detail fluctuation
+                        val individualFluctuation = sin(animTime * 15f + i * 0.8f) * 0.12f
+                        val finalAmp = (amp + individualFluctuation).coerceIn(0.04f, 1.3f)
+
+                        val baseHeight = 3.dp.toPx()
+                        val maxHeight = 48.dp.toPx()
+                        val barHeight = baseHeight + maxHeight * finalAmp * (if (isPlaying) 1f else 0.15f)
+
+                        val endRadius = startRadius + barHeight
+
+                        val xStart = cx + startRadius * cos(angle)
+                        val yStart = cy + startRadius * sin(angle)
+                        val xEnd = cx + endRadius * cos(angle)
+                        val yEnd = cy + endRadius * sin(angle)
+
+                        // Rainbow gradient wheel
+                        val barColor = when {
+                            i < N / 3 -> Color(0xFF1DB954) // Spotify Green
+                            i < 2 * N / 3 -> Color(0xFF00D2FF) // Neon Blue
+                            else -> Color(0xFFFF007F) // Hot Pink
+                        }
+
+                        drawLine(
+                            color = barColor,
+                            start = Offset(xStart, yStart),
+                            end = Offset(xEnd, yEnd),
+                            strokeWidth = 3.5.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                    }
+                }
+                else -> { // "Fluid Particles" (Default style)
+                    // Draw Overlapping Fluid Waves (Sine/Cosine modulation of circular radius)
+                    // Draw Wave 1 (Deep Bass - Purple)
+                    drawFluidWave(
+                        cx = cx, cy = cy,
+                        baseRadius = 140.dp.toPx(),
+                        waveAmp = 22.dp.toPx() * baseAmp,
+                        frequency = 6,
+                        timePhase = animTime * 2.2f,
+                        color = Color(0xFF8A2BE2).copy(alpha = 0.28f),
+                        outlineColor = Color(0xFFD8BFD8).copy(alpha = 0.4f)
+                    )
+
+                    // Draw Wave 2 (Melody - Cyan/Turquoise)
+                    drawFluidWave(
+                        cx = cx, cy = cy,
+                        baseRadius = 125.dp.toPx(),
+                        waveAmp = 18.dp.toPx() * midAmp,
+                        frequency = 8,
+                        timePhase = -animTime * 3.1f,
+                        color = Color(0xFF00F2FE).copy(alpha = 0.22f),
+                        outlineColor = Color(0xFF4FACFE).copy(alpha = 0.45f)
+                    )
+
+                    // Draw Wave 3 (Highs/Treble - Magenta)
+                    drawFluidWave(
+                        cx = cx, cy = cy,
+                        baseRadius = 110.dp.toPx(),
+                        waveAmp = 14.dp.toPx() * trebleAmp,
+                        frequency = 11,
+                        timePhase = animTime * 4.4f,
+                        color = Color(0xFFF35588).copy(alpha = 0.18f),
+                        outlineColor = Color(0xFFFF007F).copy(alpha = 0.5f)
+                    )
+
+                    // Draw Floating & Orbiting Particles
+                    particles.forEach { particle ->
+                        val dynamicAngle = particle.initialAngle + animTime * particle.speed
+                        val wobble = sin(animTime * 3f + particle.phaseOffset) * 12f
+                        val dynamicRadius = particle.baseRadius.dp.toPx() * (1f + 0.12f * baseAmp) + wobble
+                        
+                        val px = cx + dynamicRadius * cos(dynamicAngle)
+                        val py = cy + dynamicRadius * sin(dynamicAngle)
+                        
+                        // Draw particle with glow
+                        drawCircle(
+                            color = particle.color,
+                            radius = particle.size.dp.toPx(),
+                            center = Offset(px, py)
+                        )
+                        
+                        // Subtle outer halo for active play state
+                        if (isPlaying && particle.size > 4f) {
+                            drawCircle(
+                                color = particle.color.copy(alpha = 0.2f),
+                                radius = particle.size.dp.toPx() * 2f,
+                                center = Offset(px, py),
+                                style = Stroke(width = 1.dp.toPx())
+                              )
+                        }
+                    }
                 }
             }
         }
 
-        // 4. Central Spinning Cover Art framed inside the pulsing waves
+        // 4. Central Spinning Cover Art framed inside the pulsing waves / spectrum
         Box(
             modifier = Modifier
                 .size(175.dp)
@@ -284,4 +418,42 @@ private fun DrawScope.drawFluidWave(
         color = outlineColor,
         style = Stroke(width = 1.5.dp.toPx())
     )
+}
+
+// Extension to draw horizontal elegant sine waves
+private fun DrawScope.drawHorizontalSineWave(
+    width: Float,
+    cy: Float,
+    amplitude: Float,
+    frequency: Float,
+    timePhase: Float,
+    color: Color,
+    strokeWidth: Float
+) {
+    val path = Path()
+    val steps = 120
+    val stepX = width / steps
+    
+    for (i in 0..steps) {
+        val x = i * stepX
+        // Sine formula with edge tapering (edges taper to center Y smoothly)
+        val edgeTaper = sin((i.toFloat() / steps) * PI.toFloat())
+        val y = cy + amplitude * sin(x * (2f * PI.toFloat() / width) * frequency + timePhase) * edgeTaper
+        
+        if (i == 0) {
+            path.moveTo(x, y)
+        } else {
+            path.lineTo(x, y)
+        }
+    }
+    
+    drawPath(
+        path = path,
+        color = color,
+        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+    )
+}
+
+private fun lerp(start: Float, stop: Float, fraction: Float): Float {
+    return start + fraction * (stop - start)
 }

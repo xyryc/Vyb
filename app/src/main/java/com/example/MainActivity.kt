@@ -38,9 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -239,11 +241,15 @@ fun MainAppScreen(
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
     val lyricsUiState by viewModel.lyricsUiState.collectAsState()
     val themeAccent by viewModel.currentThemeAccent.collectAsState()
+    val visualizerStyle by viewModel.visualizerStyle.collectAsState()
+    val controlsOpacity by viewModel.controlsOpacity.collectAsState()
+    val ambientGlowEnabled by viewModel.ambientGlowEnabled.collectAsState()
+    val blurIntensity by viewModel.blurIntensity.collectAsState()
 
     // Drag-to-expand states
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    var screenHeightPx by remember { mutableStateOf(with(density) { configuration.screenHeightDp.dp.toPx() }) }
 
     var dragOffset by remember { mutableStateOf<Float?>(null) }
     val targetOffset = if (isPlayerExpanded) 0f else screenHeightPx
@@ -318,6 +324,9 @@ fun MainAppScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(SpotifyBlack)
+            .onSizeChanged { size ->
+                screenHeightPx = size.height.toFloat()
+            }
     ) {
         // Dynamic Backdrop Gradient
         if (currentTrack != null) {
@@ -518,7 +527,8 @@ fun MainAppScreen(
                             onSkipNextClick = { viewModel.playerManager.skipToNext() },
                             onSkipPreviousClick = { viewModel.playerManager.skipToPrevious() },
                             onSeek = { viewModel.playerManager.seekTo(it) },
-                            onClick = { if (miniPlayerAlpha > 0.8f) viewModel.setPlayerExpanded(true) }
+                            onClick = { if (miniPlayerAlpha > 0.8f) viewModel.setPlayerExpanded(true) },
+                            controlsOpacity = controlsOpacity
                         )
                     }
                 }
@@ -543,6 +553,7 @@ fun MainAppScreen(
                     playlists = playlists,
                     lyricsState = lyricsUiState,
                     themeAccent = themeAccent,
+                    visualizerStyle = visualizerStyle,
                     onSeek = { viewModel.playerManager.seekTo(it) },
                     onPlayPauseClick = { viewModel.playerManager.togglePlayPause() },
                     onPreviousClick = { viewModel.playerManager.skipToPrevious() },
@@ -573,7 +584,10 @@ fun MainAppScreen(
                             }
                             dragOffset = null
                         }
-                    )
+                    ),
+                    controlsOpacity = controlsOpacity,
+                    ambientGlowEnabled = ambientGlowEnabled,
+                    blurIntensity = blurIntensity
                 )
             }
         }
@@ -2111,12 +2125,13 @@ fun MiniPlayer(
     onSkipNextClick: () -> Unit,
     onSkipPreviousClick: () -> Unit,
     onSeek: (Long) -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    controlsOpacity: Float = 0.95f
 ) {
     val context = LocalContext.current
     Card(
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = SpotifySurface),
+        colors = CardDefaults.cardColors(containerColor = SpotifySurface.copy(alpha = controlsOpacity)),
         modifier = Modifier
             .fillMaxWidth()
             .shadow(4.dp, RoundedCornerShape(8.dp))
@@ -2274,6 +2289,7 @@ fun ExpandedPlayerScreen(
     playlists: List<PlaylistEntity>,
     lyricsState: LyricsUiState,
     themeAccent: ThemeAccent,
+    visualizerStyle: String,
     onSeek: (Long) -> Unit,
     onPlayPauseClick: () -> Unit,
     onPreviousClick: () -> Unit,
@@ -2286,7 +2302,10 @@ fun ExpandedPlayerScreen(
     onCollapse: () -> Unit,
     dominantColor: Color = SpotifySurface,
     secondaryColor: Color = SpotifyBlack,
-    headerModifier: Modifier = Modifier
+    headerModifier: Modifier = Modifier,
+    controlsOpacity: Float = 0.95f,
+    ambientGlowEnabled: Boolean = true,
+    blurIntensity: Float = 25f
 ) {
     var showVisualizer by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
@@ -2308,63 +2327,82 @@ fun ExpandedPlayerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .drawBehind {
-                val width = size.width
-                val height = size.height
-
-                // Draw base dark color
-                drawRect(color = SpotifyBlack)
-
-                // Circle 1 (Dominant color) - slow circular orbital path
-                val radius1 = width * 1.3f
-                val center1X = width / 2f + (width * 0.35f * cos(radians))
-                val center1Y = height / 3f + (height * 0.15f * sin(radians))
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(dominantColor.copy(alpha = 0.5f), Color.Transparent),
-                        center = Offset(center1X, center1Y),
-                        radius = radius1
-                    ),
-                    radius = radius1,
-                    center = Offset(center1X, center1Y)
-                )
-
-                // Circle 2 (Secondary color) - opposite orbital path
-                val radius2 = width * 1.1f
-                val center2X = width / 2f - (width * 0.3f * cos(radians + PI.toFloat() / 2f))
-                val center2Y = height * 2f / 3f - (height * 0.12f * sin(radians + PI.toFloat() / 2f))
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(secondaryColor.copy(alpha = 0.45f), Color.Transparent),
-                        center = Offset(center2X, center2Y),
-                        radius = radius2
-                    ),
-                    radius = radius2,
-                    center = Offset(center2X, center2Y)
-                )
-
-                // Circle 3 (Theme Accent Color) - dynamic sinusoidal shift
-                val radius3 = width * 0.9f
-                val center3X = width / 2f + (width * 0.25f * sin(radians * 1.3f))
-                val center3Y = height / 2f + (height * 0.1f * cos(radians * 1.3f))
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(themeAccent.color.copy(alpha = 0.3f), Color.Transparent),
-                        center = Offset(center3X, center3Y),
-                        radius = radius3
-                    ),
-                    radius = radius3,
-                    center = Offset(center3X, center3Y)
-                )
-            }
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(24.dp)
             .testTag("expanded_player")
     ) {
+        // Blur background layer
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .blur(blurIntensity.dp)
+                .drawBehind {
+                    val width = size.width
+                    val height = size.height
+
+                    // Draw base dark color
+                    drawRect(color = SpotifyBlack)
+
+                    if (ambientGlowEnabled) {
+                        val blurFactor = (blurIntensity / 25f).coerceIn(0.2f, 2.0f)
+
+                        // Circle 1 (Dominant color) - slow circular orbital path
+                        val radius1 = width * 1.3f * blurFactor
+                        val center1X = width / 2f + (width * 0.35f * cos(radians))
+                        val center1Y = height / 3f + (height * 0.15f * sin(radians))
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(dominantColor.copy(alpha = 0.5f), Color.Transparent),
+                                center = Offset(center1X, center1Y),
+                                radius = radius1
+                            ),
+                            radius = radius1,
+                            center = Offset(center1X, center1Y)
+                        )
+
+                        // Circle 2 (Secondary color) - opposite orbital path
+                        val radius2 = width * 1.1f * blurFactor
+                        val center2X = width / 2f - (width * 0.3f * cos(radians + PI.toFloat() / 2f))
+                        val center2Y = height * 2f / 3f - (height * 0.12f * sin(radians + PI.toFloat() / 2f))
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(secondaryColor.copy(alpha = 0.45f), Color.Transparent),
+                                center = Offset(center2X, center2Y),
+                                radius = radius2
+                            ),
+                            radius = radius2,
+                            center = Offset(center2X, center2Y)
+                        )
+
+                        // Circle 3 (Theme Accent Color) - dynamic sinusoidal shift
+                        val radius3 = width * 0.9f * blurFactor
+                        val center3X = width / 2f + (width * 0.25f * sin(radians * 1.3f))
+                        val center3Y = height / 2f + (height * 0.1f * cos(radians * 1.3f))
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(themeAccent.color.copy(alpha = 0.3f), Color.Transparent),
+                                center = Offset(center3X, center3Y),
+                                radius = radius3
+                            ),
+                            radius = radius3,
+                            center = Offset(center3X, center3Y)
+                        )
+                    } else {
+                        // Subtle fallback vertical gradient if ambient glow is disabled
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(dominantColor.copy(alpha = 0.15f), SpotifyBlack)
+                            )
+                        )
+                    }
+                }
+        )
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 8.dp)
         ) {
             // Header
             Row(
@@ -2458,12 +2496,14 @@ fun ExpandedPlayerScreen(
                         position = position,
                         onLineClick = onSeek,
                         accentColor = themeAccent.color,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        controlsOpacity = controlsOpacity * 0.6f
                     )
                 } else if (showVisualizer) {
                     com.example.player.FluidVisualizer(
                         track = track,
                         isPlaying = isPlaying,
+                        visualizerStyle = visualizerStyle,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
@@ -3327,9 +3367,7 @@ fun SettingsScreen(
     var islandMode by remember {
         mutableStateOf(sharedPrefs.getString("island_mode", "AUTO") ?: "AUTO")
     }
-    var islandOpacity by remember {
-        mutableStateOf(sharedPrefs.getFloat("island_opacity", 0.95f))
-    }
+    val islandOpacity by viewModel.controlsOpacity.collectAsState()
 
     var customMinutes by remember { mutableStateOf(30f) }
     var maxTimerDuration by remember { mutableStateOf(0L) }
@@ -3361,15 +3399,9 @@ fun SettingsScreen(
     var replayGainEnabled by remember {
         mutableStateOf(sharedPrefs.getBoolean("pref_replay_gain", false))
     }
-    var visualizerStyle by remember {
-        mutableStateOf(sharedPrefs.getString("pref_visualizer_style", "Fluid Particles") ?: "Fluid Particles")
-    }
-    var ambientGlowEnabled by remember {
-        mutableStateOf(sharedPrefs.getBoolean("pref_ambient_glow", true))
-    }
-    var blurIntensity by remember {
-        mutableStateOf(sharedPrefs.getFloat("pref_blur_intensity", 25f))
-    }
+    val visualizerStyle by viewModel.visualizerStyle.collectAsState()
+    val ambientGlowEnabled by viewModel.ambientGlowEnabled.collectAsState()
+    val blurIntensity by viewModel.blurIntensity.collectAsState()
     var downloadWifiOnly by remember {
         mutableStateOf(sharedPrefs.getBoolean("pref_wifi_only", false))
     }
@@ -3968,8 +4000,7 @@ fun SettingsScreen(
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .clickable {
-                                visualizerStyle = style
-                                sharedPrefs.edit().putString("pref_visualizer_style", style).apply()
+                                viewModel.setVisualizerStyle(style)
                                 triggerHapticFeedback(context, "tick")
                             }
                             .padding(vertical = 12.dp),
@@ -4018,8 +4049,7 @@ fun SettingsScreen(
                 Slider(
                     value = islandOpacity,
                     onValueChange = {
-                        islandOpacity = it
-                        sharedPrefs.edit().putFloat("island_opacity", it).apply()
+                        viewModel.setControlsOpacity(it)
                     },
                     valueRange = 0.3f..1.0f,
                     colors = SliderDefaults.colors(
@@ -4066,8 +4096,7 @@ fun SettingsScreen(
                 Switch(
                     checked = ambientGlowEnabled,
                     onCheckedChange = {
-                        ambientGlowEnabled = it
-                        sharedPrefs.edit().putBoolean("pref_ambient_glow", it).apply()
+                        viewModel.setAmbientGlowEnabled(it)
                         triggerHapticFeedback(context, "snap")
                     },
                     colors = SwitchDefaults.colors(
@@ -4112,8 +4141,7 @@ fun SettingsScreen(
                 Slider(
                     value = blurIntensity,
                     onValueChange = {
-                        blurIntensity = it
-                        sharedPrefs.edit().putFloat("pref_blur_intensity", it).apply()
+                        viewModel.setBlurIntensity(it)
                     },
                     valueRange = 10f..50f,
                     colors = SliderDefaults.colors(
@@ -5500,12 +5528,13 @@ fun LyricsPanel(
     position: Long,
     onLineClick: (Long) -> Unit,
     accentColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    controlsOpacity: Float = 0.55f
 ) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(SpotifyBlack.copy(alpha = 0.55f))
+            .background(SpotifyBlack.copy(alpha = controlsOpacity))
             .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
             .padding(16.dp),
         contentAlignment = Alignment.Center

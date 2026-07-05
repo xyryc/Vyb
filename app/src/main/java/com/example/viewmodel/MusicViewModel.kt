@@ -19,6 +19,7 @@ sealed interface ScreenState {
     object Settings : ScreenState
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
     private val repository = TrackRepository(database.trackDao())
@@ -81,6 +82,26 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     )
     val currentThemeAccent: StateFlow<ThemeAccent> = _currentThemeAccent.asStateFlow()
 
+    private val _visualizerStyle = MutableStateFlow(
+        sharedPrefs.getString("pref_visualizer_style", "Fluid Particles") ?: "Fluid Particles"
+    )
+    val visualizerStyle: StateFlow<String> = _visualizerStyle.asStateFlow()
+
+    private val _controlsOpacity = MutableStateFlow(
+        sharedPrefs.getFloat("island_opacity", 0.95f)
+    )
+    val controlsOpacity: StateFlow<Float> = _controlsOpacity.asStateFlow()
+
+    private val _ambientGlowEnabled = MutableStateFlow(
+        sharedPrefs.getBoolean("pref_ambient_glow", true)
+    )
+    val ambientGlowEnabled: StateFlow<Boolean> = _ambientGlowEnabled.asStateFlow()
+
+    private val _blurIntensity = MutableStateFlow(
+        sharedPrefs.getFloat("pref_blur_intensity", 25f)
+    )
+    val blurIntensity: StateFlow<Float> = _blurIntensity.asStateFlow()
+
     private val _lyricsUiState = MutableStateFlow<LyricsUiState>(LyricsUiState.Idle)
     val lyricsUiState: StateFlow<LyricsUiState> = _lyricsUiState.asStateFlow()
 
@@ -95,6 +116,26 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun setThemeAccent(accent: ThemeAccent) {
         _currentThemeAccent.value = accent
         sharedPrefs.edit().putString("theme_accent", accent.name).apply()
+    }
+
+    fun setVisualizerStyle(style: String) {
+        _visualizerStyle.value = style
+        sharedPrefs.edit().putString("pref_visualizer_style", style).apply()
+    }
+
+    fun setControlsOpacity(opacity: Float) {
+        _controlsOpacity.value = opacity
+        sharedPrefs.edit().putFloat("island_opacity", opacity).apply()
+    }
+
+    fun setAmbientGlowEnabled(enabled: Boolean) {
+        _ambientGlowEnabled.value = enabled
+        sharedPrefs.edit().putBoolean("pref_ambient_glow", enabled).apply()
+    }
+
+    fun setBlurIntensity(intensity: Float) {
+        _blurIntensity.value = intensity
+        sharedPrefs.edit().putFloat("pref_blur_intensity", intensity).apply()
     }
 
     private var sleepTimerJob: kotlinx.coroutines.Job? = null
