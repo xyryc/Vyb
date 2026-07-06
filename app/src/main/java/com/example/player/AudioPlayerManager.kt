@@ -9,6 +9,7 @@ import android.media.audiofx.BassBoost
 import android.media.audiofx.Virtualizer
 import android.net.Uri
 import android.util.Log
+import android.os.Build
 import com.example.data.TrackEntity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -168,8 +169,17 @@ class AudioPlayerManager(private val context: Context) {
 
     private var originalQueue: List<TrackEntity> = emptyList()
 
+    private val sharedPrefs = context.getSharedPreferences("music_player_settings", Context.MODE_PRIVATE)
+    private val _notificationsEnabled = MutableStateFlow(sharedPrefs.getBoolean("pref_notifications", true))
+    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+        if (key == "pref_notifications") {
+            _notificationsEnabled.value = prefs.getBoolean(key, true)
+        }
+    }
+
     init {
         instance = this
+        sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
         initializeMediaPlayer()
         setupMediaPlaybackServiceCallbacks()
         observePlaybackStateForNotification()
@@ -202,12 +212,24 @@ class AudioPlayerManager(private val context: Context) {
         }
     }
 
+    private data class NotificationState(
+        val track: TrackEntity?,
+        val playing: Boolean,
+        val duration: Long,
+        val enabled: Boolean
+    )
+
     private fun observePlaybackStateForNotification() {
         scope.launch {
-            combine(currentTrack, isPlaying, playbackDuration) { track, playing, duration ->
-                Triple(track, playing, duration)
-            }.collect { (track, playing, duration) ->
-                if (track != null) {
+            combine(currentTrack, isPlaying, playbackDuration, _notificationsEnabled) { track, playing, duration, enabled ->
+                NotificationState(track, playing, duration, enabled)
+            }.collect { state ->
+                val track = state.track
+                val playing = state.playing
+                val duration = state.duration
+                val enabled = state.enabled
+
+                if (track != null && enabled) {
                     val intent = Intent(context, MediaPlaybackService::class.java).apply {
                         putExtra("track_id", track.id)
                         putExtra("track_title", track.title)
@@ -416,6 +438,7 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     private fun syncPositionToService() {
+        if (!_notificationsEnabled.value) return
         val track = _currentTrack.value ?: return
         val playing = _isPlaying.value
         val duration = _playbackDuration.value
@@ -783,6 +806,7 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun release() {
+        sharedPrefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         stopPositionUpdates()
         scope.cancel()
         releaseEqualizer()
