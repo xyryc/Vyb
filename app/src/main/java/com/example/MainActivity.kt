@@ -3473,6 +3473,25 @@ fun SettingsScreen(
     var librarySortOrder by remember {
         mutableStateOf(sharedPrefs.getString("pref_sort_order", "Title") ?: "Title")
     }
+    var libraryFolders by remember {
+        mutableStateOf(sharedPrefs.getStringSet("pref_library_folders", emptySet())?.toSet() ?: emptySet())
+    }
+    val settingsFolderLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            val folderFile = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, it)
+            val folderName = folderFile?.name ?: "Imported Folder"
+            val entry = "${it.toString()}|$folderName"
+            
+            val updatedSet = libraryFolders.toMutableSet().apply { add(entry) }
+            libraryFolders = updatedSet
+            sharedPrefs.edit().putStringSet("pref_library_folders", updatedSet).apply()
+            
+            viewModel.importLocalFolder(it)
+            android.widget.Toast.makeText(context, t("folder_added_toast", language), android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     var pauseOnUnplug by remember {
         mutableStateOf(sharedPrefs.getBoolean("pref_pause_on_unplug", true))
     }
@@ -3739,7 +3758,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = t("app_language", language),
                         color = SpotifyWhite,
@@ -3752,6 +3771,8 @@ fun SettingsScreen(
                         fontSize = 11.sp
                     )
                 }
+
+                Spacer(modifier = Modifier.width(16.dp))
 
                 var showLangDropdown by remember { mutableStateOf(false) }
                 Box {
@@ -4372,7 +4393,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = t("library_sort_title", language),
                         color = SpotifyWhite,
@@ -4385,6 +4406,8 @@ fun SettingsScreen(
                         fontSize = 11.sp
                     )
                 }
+
+                Spacer(modifier = Modifier.width(16.dp))
 
                 var showSortDropdown by remember { mutableStateOf(false) }
                 Box {
@@ -4433,6 +4456,136 @@ fun SettingsScreen(
 
             HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
 
+            // Active Music Folders title
+            Text(
+                text = t("active_folders_title", language),
+                color = SpotifyWhite,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            if (libraryFolders.isEmpty()) {
+                Text(
+                    text = t("no_custom_folders", language),
+                    color = SpotifyGrey,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            } else {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    libraryFolders.forEach { folderEntry ->
+                        val parts = folderEntry.split("|")
+                        val uriStr = parts.getOrNull(0) ?: ""
+                        val folderName = parts.getOrNull(1) ?: "Custom Folder"
+                        
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SpotifySurfaceVariant, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Folder,
+                                    contentDescription = null,
+                                    tint = currentAccent.color,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = folderName,
+                                        color = SpotifyWhite,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = if (uriStr.length > 40) "..." + uriStr.takeLast(37) else uriStr,
+                                        color = SpotifyGrey,
+                                        fontSize = 10.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                            
+                            Row {
+                                IconButton(
+                                    onClick = {
+                                        try {
+                                            val uri = android.net.Uri.parse(uriStr)
+                                            viewModel.importLocalFolder(uri)
+                                            android.widget.Toast.makeText(context, t("folder_added_toast", language), android.widget.Toast.LENGTH_SHORT).show()
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Rescan folder",
+                                        tint = SpotifyWhite,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = {
+                                        val updatedSet = libraryFolders.toMutableSet().apply { remove(folderEntry) }
+                                        libraryFolders = updatedSet
+                                        sharedPrefs.edit().putStringSet("pref_library_folders", updatedSet).apply()
+                                        android.widget.Toast.makeText(context, t("folder_removed_toast", language), android.widget.Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Remove folder",
+                                        tint = SpotifyGrey,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Add Custom Folder Button
+            Button(
+                onClick = {
+                    try {
+                        settingsFolderLauncher.launch(null)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    tint = SpotifyWhite,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(t("add_folder_btn", language), color = SpotifyWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
             // Rescan library with animated simulation!
             var isScanning by remember { mutableStateOf(false) }
             var scanProgress by remember { mutableStateOf(0f) }
@@ -4440,6 +4593,18 @@ fun SettingsScreen(
 
             if (isScanning) {
                 LaunchedEffect(Unit) {
+                    // Start actual scan in background if there are directories
+                    libraryFolders.forEach { folderEntry ->
+                        try {
+                            val parts = folderEntry.split("|")
+                            val uriStr = parts.getOrNull(0) ?: ""
+                            if (uriStr.isNotEmpty()) {
+                                viewModel.importLocalFolder(android.net.Uri.parse(uriStr))
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
                     for (i in 1..20) {
                         delay(100)
                         scanProgress = i / 20f
@@ -4808,7 +4973,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = t("haptic_response_title", language),
                         color = SpotifyWhite,
@@ -4821,6 +4986,8 @@ fun SettingsScreen(
                         fontSize = 11.sp
                     )
                 }
+
+                Spacer(modifier = Modifier.width(16.dp))
 
                 var showHapticDropdown by remember { mutableStateOf(false) }
                 Box {

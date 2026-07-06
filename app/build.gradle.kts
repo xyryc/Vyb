@@ -25,17 +25,11 @@ android {
 
   signingConfigs {
     create("release") {
-      val localProperties = java.util.Properties().apply {
-        val file = rootProject.file("local.properties")
-        if (file.exists()) {
-          file.inputStream().use { load(it) }
-        }
-      }
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: localProperties.getProperty("keystore.path") ?: "my-upload-key.jks"
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
       storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD") ?: localProperties.getProperty("keystore.password")
-      keyAlias = localProperties.getProperty("keystore.alias") ?: "upload"
-      keyPassword = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty("keystore.keyPassword")
+      storePassword = System.getenv("STORE_PASSWORD")?.takeIf { it.isNotEmpty() } ?: "vybpassword123"
+      keyAlias = "upload"
+      keyPassword = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotEmpty() } ?: "vybpassword123"
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
