@@ -101,6 +101,14 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.PI
 
+import com.example.localization.AppLanguage
+import com.example.localization.LocalAppLanguage
+import com.example.localization.Translator
+import com.example.localization.t
+import com.example.localization.getLanguageWithFlag
+import com.example.localization.localizePlaylistName
+import com.example.localization.localizePlaylistDescription
+
 val SpotifyGreen: Color
     @Composable
     get() = com.example.ui.theme.LocalAccentColor.current
@@ -112,346 +120,6 @@ private fun getScreenOrdinal(screen: ScreenState): Int {
         is ScreenState.Library -> 2
         is ScreenState.PlaylistDetail -> 3
         is ScreenState.Settings -> 4
-    }
-}
-
-enum class AppLanguage(val displayName: String, val tag: String) {
-    ENGLISH("English 🇺🇸", "en"),
-    ESPANOL("Español 🇪🇸", "es"),
-    PALESTINE_ARABIC("العربية (فلسطين) 🇵🇸", "ar_PS"),
-    FARSI("فارسی 🇮🇷", "fa");
-
-    companion object {
-        fun fromString(value: String?): AppLanguage {
-            if (value == null) return ENGLISH
-            val cleanValue = value.lowercase()
-            return entries.find { 
-                cleanValue.contains(it.displayName.lowercase()) || 
-                it.displayName.lowercase().contains(cleanValue) ||
-                cleanValue.contains(it.tag.lowercase()) ||
-                it.tag.lowercase().contains(cleanValue) ||
-                cleanValue.contains(it.name.lowercase())
-            } ?: ENGLISH
-        }
-    }
-}
-
-object Translator {
-    private val translations = mapOf(
-        AppLanguage.ENGLISH to mapOf(
-            "home" to "Home",
-            "search" to "Search",
-            "library" to "Your Library",
-            "settings" to "Settings",
-            "recently_played" to "Recently Played",
-            "popular_playlists" to "Popular Playlists",
-            "ambient_soundscapes" to "Ambient Soundscapes",
-            "jump_back_in" to "Jump Back In",
-            "featured_artists" to "Featured Artists",
-            "heavy_rotation" to "Heavy Rotation",
-            "good_morning" to "Good morning",
-            "good_afternoon" to "Good afternoon",
-            "good_evening" to "Good evening",
-            "good_night" to "Good night",
-            "what_listen" to "What do you want to listen to?",
-            "browse_all" to "Browse all",
-            "playlists" to "Playlists",
-            "artists" to "Artists",
-            "albums" to "Albums",
-            "liked_songs" to "Liked Songs",
-            "create_playlist" to "Create Playlist",
-            "add_new_playlist" to "Add New Playlist",
-            "playlist_name" to "Playlist Name",
-            "cancel" to "Cancel",
-            "create" to "Create",
-            "empty_library" to "Your library is empty. Import songs or create a playlist!",
-            "now_playing" to "Now Playing",
-            "lyrics" to "Lyrics",
-            "sleep_timer" to "Sleep Timer",
-            "queue" to "Queue",
-            "minutes" to "minutes",
-            "set_sleep_timer" to "Set Sleep Timer",
-            "cancel_sleep_timer" to "Cancel Sleep Timer",
-            "visualizer_style" to "Visualizer Style",
-            "ambient_glow" to "Ambient Glow",
-            "blur_intensity" to "Blur Intensity",
-            "look_feel" to "Look and Feel",
-            "look_feel_sub" to "Theme accents, interface language, status controls",
-            "app_language" to "Application Language",
-            "lang_desc" to "Language for user interface elements",
-            "sys_controls" to "System Drawer Controls",
-            "sys_controls_desc" to "Control playback from system notification shade",
-            "haptic_feedback" to "Haptic Feedback",
-            "haptic_desc" to "Configure vibration feedback intensity",
-            "audio_playback" to "Audio & Playback",
-            "audio_playback_sub" to "Crossfade, replay gain, continuous stream options",
-            "crossfade" to "Crossfade",
-            "crossfade_desc" to "Transition smoothly between consecutive audio tracks",
-            "replay_gain" to "Replay Gain",
-            "replay_gain_desc" to "Normalize loudness levels across different tracks",
-            "equalizer" to "Equalizer",
-            "equalizer_desc" to "Manually fine-tune sound frequency bands",
-            "downloads_storage" to "Downloads & Storage",
-            "downloads_sub" to "Local caching, artwork resolution, connection limits",
-            "wifi_only" to "Download over Wi-Fi only",
-            "wifi_only_desc" to "Restrict heavy network synchronization to Wi-Fi",
-            "hq_art" to "High Quality Artwork",
-            "hq_art_desc" to "Fetch high resolution original cover arts",
-            "lockscreen_widget" to "Lock Screen Widget",
-            "lockscreen_widget_desc" to "Display active controls on the system lockscreen",
-            "headset_controls" to "Headset Controls",
-            "pause_on_unplug" to "Pause on unplug",
-            "pause_on_unplug_desc" to "Halt playback immediately when headset is disconnected",
-            "resume_on_connect" to "Resume on connect",
-            "resume_on_connect_desc" to "Autostart play when headphones are reattached",
-            "active_accent" to "Active Theme Accent",
-            "theme_desc" to "Choose a brand styling color highlight",
-            "off" to "Off",
-            "import_songs" to "Import Songs",
-            "import_folder" to "Import Folder",
-            "local_audio" to "Local Audio Tracks"
-        ),
-        AppLanguage.ESPANOL to mapOf(
-            "home" to "Inicio",
-            "search" to "Buscar",
-            "library" to "Tu Biblioteca",
-            "settings" to "Ajustes",
-            "recently_played" to "Escuchado recientemente",
-            "popular_playlists" to "Listas populares",
-            "ambient_soundscapes" to "Paisajes sonoros",
-            "jump_back_in" to "Volver a escuchar",
-            "featured_artists" to "Artistas destacados",
-            "heavy_rotation" to "Muy escuchado",
-            "good_morning" to "Buenos días",
-            "good_afternoon" to "Buenas tardes",
-            "good_evening" to "Buenas noches",
-            "good_night" to "Buenas noches",
-            "what_listen" to "¿Qué quieres escuchar?",
-            "browse_all" to "Explorar todo",
-            "playlists" to "Listas",
-            "artists" to "Artistas",
-            "albums" to "Álbumes",
-            "liked_songs" to "Canciones que te gustan",
-            "create_playlist" to "Crear lista de reproducción",
-            "add_new_playlist" to "Añadir nueva lista",
-            "playlist_name" to "Nombre de la lista",
-            "cancel" to "Cancelar",
-            "create" to "Crear",
-            "empty_library" to "Tu biblioteca está vacía. ¡Importa canciones o crea una lista!",
-            "now_playing" to "Sonando ahora",
-            "lyrics" to "Letras",
-            "sleep_timer" to "Temporizador",
-            "queue" to "Cola de reproducción",
-            "minutes" to "minutos",
-            "set_sleep_timer" to "Ajustar temporizador",
-            "cancel_sleep_timer" to "Cancelar temporizador",
-            "visualizer_style" to "Estilo de visualizador",
-            "ambient_glow" to "Resplandor ambiental",
-            "blur_intensity" to "Intensidad de desenfoque",
-            "look_feel" to "Aspecto y sensación",
-            "look_feel_sub" to "Acentos de tema, idioma de interfaz, controles de estado",
-            "app_language" to "Idioma de la aplicación",
-            "lang_desc" to "Idioma para los elementos de la interfaz de usuario",
-            "sys_controls" to "Controles del sistema",
-            "sys_controls_desc" to "Controlar la reproducción desde las notificaciones",
-            "haptic_feedback" to "Respuesta háptica",
-            "haptic_desc" to "Configurar la intensidad de la vibración",
-            "audio_playback" to "Audio y reproducción",
-            "audio_playback_sub" to "Transición, ganancia de reproducción, opciones de flujo continuo",
-            "crossfade" to "Transición gradual (Crossfade)",
-            "crossfade_desc" to "Transición suave entre canciones consecutivas",
-            "replay_gain" to "Ganancia de reproducción",
-            "replay_gain_desc" to "Normalizar los niveles de volumen en diferentes pistas",
-            "equalizer" to "Ecualizador",
-            "equalizer_desc" to "Ajustar manualmente las bandas de frecuencia de sonido",
-            "downloads_storage" to "Descargas y almacenamiento",
-            "downloads_sub" to "Caché local, resolución de portadas, límites de conexión",
-            "wifi_only" to "Descargar solo por Wi-Fi",
-            "wifi_only_desc" to "Restringir la sincronización pesada de red a Wi-Fi",
-            "hq_art" to "Portadas en alta calidad",
-            "hq_art_desc" to "Obtener portadas de alta resolución",
-            "lockscreen_widget" to "Widget de pantalla de bloqueo",
-            "lockscreen_widget_desc" to "Mostrar controles activos en la pantalla de bloqueo",
-            "headset_controls" to "Controles de auriculares",
-            "pause_on_unplug" to "Pausar al desconectar",
-            "pause_on_unplug_desc" to "Detener la reproducción cuando se desconecten los auriculares",
-            "resume_on_connect" to "Reanudar al conectar",
-            "resume_on_connect_desc" to "Iniciar automáticamente al conectar auriculares",
-            "active_accent" to "Color de acento activo",
-            "theme_desc" to "Elegir un color de diseño destacado",
-            "off" to "Apagado",
-            "import_songs" to "Importar canciones",
-            "import_folder" to "Importar carpeta",
-            "local_audio" to "Pistas de audio locales"
-        ),
-
-        AppLanguage.PALESTINE_ARABIC to mapOf(
-            "home" to "الرئيسية",
-            "search" to "البحث",
-            "library" to "مكتبتك",
-            "settings" to "الإعدادات",
-            "recently_played" to "شغلتوهن مؤخرًا",
-            "popular_playlists" to "قوائم تشغيل شعبية",
-            "ambient_soundscapes" to "أصوات بيئية هادية",
-            "jump_back_in" to "ارجع اسمع",
-            "featured_artists" to "فنانينا الكبار",
-            "heavy_rotation" to "الأكثر استماعاً",
-            "good_morning" to "يسعد صباحك",
-            "good_afternoon" to "يسعد مساك",
-            "good_evening" to "يسعد مساك",
-            "good_night" to "تصبح على خير",
-            "what_listen" to "شو حابب تسمع اليوم؟",
-            "browse_all" to "تصفح كل شي",
-            "playlists" to "قوائم التشغيل",
-            "artists" to "الفنانين",
-            "albums" to "الألبومات",
-            "liked_songs" to "أغاني عجبتك",
-            "create_playlist" to "عمل قائمة تشغيل",
-            "add_new_playlist" to "إضافة قائمة جديدة",
-            "playlist_name" to "اسم القائمة",
-            "cancel" to "إلغاء",
-            "create" to "عمل",
-            "empty_library" to "المكتبة فاضية. ضيف أغاني أو اعمل قائمة تشغيل!",
-            "now_playing" to "شغال هسا",
-            "lyrics" to "الكلمات",
-            "sleep_timer" to "مؤقت النوم",
-            "queue" to "الدور بالتشغيل",
-            "minutes" to "دقائق",
-            "set_sleep_timer" to "ضبط مؤقت النوم",
-            "cancel_sleep_timer" to "إلغاء مؤقت النوم",
-            "visualizer_style" to "شكل مظهر الصوت",
-            "ambient_glow" to "الوهج المحيطي",
-            "blur_intensity" to "قوة التغبيش",
-            "look_feel" to "الشكل والمظهر",
-            "look_feel_sub" to "ألوان التطبيق، لغة الواجهة، والتحكمات",
-            "app_language" to "لغة التطبيق",
-            "lang_desc" to "تغيير لغة عناصر واجهة المستخدم",
-            "sys_controls" to "تحكمات النظام",
-            "sys_controls_desc" to "التحكم بالتشغيل من برداية الإشعارات",
-            "haptic_feedback" to "الارتجاج اللمسی",
-            "haptic_desc" to "تعديل قوة هزة اللمس",
-            "audio_playback" to "الصوت والتشغيل",
-            "audio_playback_sub" to "التداخل، موازنة الصوت، وخيارات البث",
-            "crossfade" to "تداخل الأصوات (Crossfade)",
-            "crossfade_desc" to "انتقال ناعم بين الأغاني ورا بعض",
-            "replay_gain" to "توحيد الصوت",
-            "replay_gain_desc" to "موازنة علو الصوت بين الأغاني المختلفة",
-            "equalizer" to "معادل الصوت",
-            "equalizer_desc" to "تعديل يدوي لترددات الصوت والموجات",
-            "downloads_storage" to "التنزيلات والتخزين",
-            "downloads_sub" to "التخزين المؤقت، جودة غلاف الأغنية، وحدود الاتصال",
-            "wifi_only" to "تنزيل بس ع الواي فاي",
-            "wifi_only_desc" to "مزامنة التحميلات الثقيلة بس ع الواي فاي",
-            "hq_art" to "أغلفة بجودة عالية",
-            "hq_art_desc" to "جلب غلاف الألبوم الأصلي بالدقة الكاملة",
-            "lockscreen_widget" to "أداة شاشة القفل",
-            "lockscreen_widget_desc" to "عرض عناصر التحكم على شاشة القفل",
-            "headset_controls" to "تحكمات السماعة",
-            "pause_on_unplug" to "توقيف عند الفصل",
-            "pause_on_unplug_desc" to "توقيف الأغنية فوراً لما تفصل السماعة",
-            "resume_on_connect" to "تشغيل عند التوصيل",
-            "resume_on_connect_desc" to "تشغيل الموسيقى تلقائياً لما ترجع تشبك السماعة",
-            "active_accent" to "لون التطبيق النشط",
-            "theme_desc" to "اختر لون مميز للتطبيق",
-            "off" to "إيقاف",
-            "import_songs" to "استيراد الأغاني",
-            "import_folder" to "استيراد مجلد",
-            "local_audio" to "المقاطع الصوتية المحلية"
-        ),
-        AppLanguage.FARSI to mapOf(
-            "home" to "خانه",
-            "search" to "جستجو",
-            "library" to "کتابخانه شما",
-            "settings" to "تنظیمات",
-            "recently_played" to "اخیراً پخش شده",
-            "popular_playlists" to "پلی‌لیست‌های محبوب",
-            "ambient_soundscapes" to "صداهای آرامش‌بخش محیطی",
-            "jump_back_in" to "ادامه شنیدن",
-            "featured_artists" to "هنرمندان برگزیده",
-            "heavy_rotation" to "بیشترین پخش",
-            "good_morning" to "صبح بخیر",
-            "good_afternoon" to "ظهر بخیر",
-            "good_evening" to "عصر بخیر",
-            "good_night" to "شب بخیر",
-            "what_listen" to "دوست داری چی گوش بدی؟",
-            "browse_all" to "مرور همه دسته‌ها",
-            "playlists" to "پلی‌لیست‌ها",
-            "artists" to "هنرمندان",
-            "albums" to "آلبوم‌ها",
-            "liked_songs" to "آهنگ‌های پسندیده",
-            "create_playlist" to "ساخت پلی‌لیست",
-            "add_new_playlist" to "افزودن پلی‌لیست جدید",
-            "playlist_name" to "نام پلی‌لیست",
-            "cancel" to "لغو",
-            "create" to "ایجاد",
-            "empty_library" to "کتابخانه شما خالی است. آهنگ وارد کنید یا پلی‌لیست بسازید!",
-            "now_playing" to "در حال پخش",
-            "lyrics" to "متن آهنگ",
-            "sleep_timer" to "تایمر خواب",
-            "queue" to "صف پخش",
-            "minutes" to "دقیقه",
-            "set_sleep_timer" to "تنظیم تایمر خواب",
-            "cancel_sleep_timer" to "لغو تایمر خواب",
-            "visualizer_style" to "سبک رقص نور",
-            "ambient_glow" to "تابش محیطی",
-            "blur_intensity" to "شدت محوشدگی",
-            "look_feel" to "ظاهر و احساس",
-            "look_feel_sub" to "طرح رنگی، زبان برنامه، و کنترل‌های وضعیت",
-            "app_language" to "زبان برنامه",
-            "lang_desc" to "زبان مورد استفاده در بخش‌های مختلف برنامه",
-            "sys_controls" to "کنترل‌های سیستم",
-            "sys_controls_desc" to "کنترل پخش از منوی اعلان‌های گوشی",
-            "haptic_feedback" to "بازخورد لمسی",
-            "haptic_desc" to "تنظیم شدت لرزش هنگام لمس",
-            "audio_playback" to "صدا و پخش",
-            "audio_playback_sub" to "درهم‌آمیزی، تراز صدا و پخش مداوم",
-            "crossfade" to "درهم‌آمیزی (Crossfade)",
-            "crossfade_desc" to "گذار نرم و تدریجی بین آهنگ‌های پشت‌سرهم",
-            "replay_gain" to "تنظیم تراز صدا",
-            "replay_gain_desc" to "یکنواخت‌سازی بلندی صدا در آهنگ‌های مختلف",
-            "equalizer" to "اکولایزر",
-            "equalizer_desc" to "تنظیم دستی فرکانس‌های مختلف صدا",
-            "downloads_storage" to "دانلود و ذخیره‌سازی",
-            "downloads_sub" to "حافظه موقت، کیفیت کاورها و محدودیت اتصال",
-            "wifi_only" to "دانلود فقط با Wi-Fi",
-            "wifi_only_desc" to "محدود کردن دانلودهای سنگین به شبکه وای‌افای",
-            "hq_art" to "کاورهای باکیفیت",
-            "hq_art_desc" to "دریافت کاور آلبوم‌ها با بالاترین کیفیت اصلی",
-            "lockscreen_widget" to "ویجت صفحه قفل",
-            "lockscreen_widget_desc" to "نمایش دکمه‌های کنترل موسیقی در صفحه قفل گوشی",
-            "headset_controls" to "کنترل‌های هدفون",
-            "pause_on_unplug" to "توقف هنگام قطع اتصال",
-            "pause_on_unplug_desc" to "توقف فوری پخش هنگام جدا شدن هدفون",
-            "resume_on_connect" to "شروع هنگام اتصال مجدد",
-            "resume_on_connect_desc" to "پخش خودکار موسیقی هنگام اتصال دوباره هدفون",
-            "active_accent" to "رنگ اصلی برنامه",
-            "theme_desc" to "یک رنگ برای بخش‌های شاخص برنامه انتخاب کنید",
-            "off" to "خاموش",
-            "import_songs" to "وارد کردن آهنگ‌ها",
-            "import_folder" to "وارد کردن پوشه",
-            "local_audio" to "آهنگ‌های صوتی محلی"
-        )
-    )
-
-    fun translate(key: String, lang: AppLanguage): String {
-        return translations[lang]?.get(key) ?: translations[AppLanguage.ENGLISH]?.get(key) ?: key
-    }
-}
-
-val LocalAppLanguage = compositionLocalOf { "English 🇺🇸" }
-
-fun t(key: String, languageStr: String): String {
-    val lang = AppLanguage.fromString(languageStr)
-    return Translator.translate(key, lang)
-}
-
-fun getLanguageWithFlag(savedLang: String): String {
-    return when {
-        savedLang.contains("English") || savedLang.contains("en") -> "English 🇺🇸"
-        savedLang.contains("Español") || savedLang.contains("es") -> "Español 🇪🇸"
-        savedLang.contains("العربية") || savedLang.contains("ar") || savedLang.contains("palestine") -> "العربية (فلسطين) 🇵🇸"
-        savedLang.contains("فارسی") || savedLang.contains("Farsi") || savedLang.contains("Persian") || savedLang.contains("fa") -> "فارسی 🇮🇷"
-        else -> "English 🇺🇸"
     }
 }
 
@@ -548,7 +216,7 @@ fun MainAppScreen(
         context.getSharedPreferences("music_player_settings", android.content.Context.MODE_PRIVATE)
     }
     var language by remember {
-        val saved = sharedPrefs.getString("pref_language", "English 🇺🇸") ?: "English 🇺🇸"
+        val saved = sharedPrefs.getString("pref_language", "English 🇮🇪") ?: "English 🇮🇪"
         mutableStateOf(getLanguageWithFlag(saved))
     }
     val currentAppLanguage = AppLanguage.fromString(language)
@@ -830,6 +498,7 @@ fun MainAppScreen(
                             playlist = screen.playlist,
                             tracks = selectedPlaylistTracks,
                             allTracks = allTracks,
+                            language = language,
                             onTrackClick = { track -> viewModel.playTrack(track, selectedPlaylistTracks) },
                             currentTrack = currentTrack,
                             isPlaying = isPlaying,
@@ -1017,18 +686,19 @@ fun HomeScreen(
         }
     }
 
+    val language = LocalAppLanguage.current
     val greetingText = when (hour) {
-        in 5..11 -> "Good morning 🌅"
-        in 12..16 -> "Good afternoon ☀️"
-        in 17..21 -> "Good evening 🌇"
-        else -> "Late night vibes 🌌"
+        in 5..11 -> t("good_morning", language) + " 🌅"
+        in 12..16 -> t("good_afternoon", language) + " ☀️"
+        in 17..21 -> t("good_evening", language) + " 🌇"
+        else -> t("late_night_vibes", language)
     }
 
     val greetingSubtitle = when (hour) {
-        in 5..11 -> "Ready to start your day with some tunes?"
-        in 12..16 -> "Keep the energy high and the music playing!"
-        in 17..21 -> "Time to unwind and find your evening groove."
-        else -> "Winding down, or chasing late-night ideas?"
+        in 5..11 -> t("morning_sub", language)
+        in 12..16 -> t("afternoon_sub", language)
+        in 17..21 -> t("evening_sub", language)
+        else -> t("night_sub", language)
     }
 
     LazyColumn(
@@ -1101,7 +771,7 @@ fun HomeScreen(
         item {
             Column(modifier = Modifier.padding(bottom = 24.dp)) {
                 Text(
-                    text = "Made For You",
+                    text = t("made_for_you", language),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = SpotifyWhite,
@@ -1117,6 +787,7 @@ fun HomeScreen(
                     getSmartMixes().forEach { mix ->
                         SmartMixCard(
                             playlist = mix,
+                            language = language,
                             onClick = { onPlaylistClick(mix) }
                         )
                     }
@@ -1127,7 +798,7 @@ fun HomeScreen(
         // Featured Songs list
         item {
             Text(
-                text = "More of what you like",
+                text = t("more_what_like", language),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = SpotifyWhite,
@@ -1173,9 +844,12 @@ fun getSmartMixes(): List<PlaylistEntity> {
     )
 }
 
+
+
 @Composable
 fun SmartMixCard(
     playlist: PlaylistEntity,
+    language: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1248,7 +922,7 @@ fun SmartMixCard(
                     }
                     
                     Text(
-                        text = "SMART MIX",
+                        text = t("smart_mix_badge", language).uppercase(),
                         color = SpotifyWhite.copy(alpha = 0.8f),
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -1258,7 +932,7 @@ fun SmartMixCard(
 
                 Column {
                     Text(
-                        text = playlist.name,
+                        text = localizePlaylistName(playlist.name, language),
                         color = SpotifyWhite,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
@@ -1267,7 +941,7 @@ fun SmartMixCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = playlist.description,
+                        text = localizePlaylistDescription(playlist.description, language),
                         color = SpotifyWhite.copy(alpha = 0.8f),
                         fontSize = 11.sp,
                         maxLines = 2,
@@ -1425,6 +1099,7 @@ fun SearchScreen(
     currentTrack: TrackEntity?,
     onLikeClick: (TrackEntity) -> Unit
 ) {
+    val language = LocalAppLanguage.current
     val categories = listOf(
         Pair("Synthwave", Color(0xFFE91E63)),
         Pair("Vaporwave", Color(0xFF9C27B0)),
@@ -1442,7 +1117,7 @@ fun SearchScreen(
             .padding(horizontal = 16.dp)
     ) {
         Text(
-            text = "Search",
+            text = t("search", language),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = SpotifyWhite,
@@ -1453,8 +1128,8 @@ fun SearchScreen(
         TextField(
             value = searchQuery,
             onValueChange = onQueryChange,
-            placeholder = { Text("What do you want to listen to?", color = SpotifyGrey) },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search", tint = SpotifyGrey) },
+            placeholder = { Text(t("what_listen", language), color = SpotifyGrey) },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = t("search", language), tint = SpotifyGrey) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }) {
@@ -1481,7 +1156,7 @@ fun SearchScreen(
 
         if (searchQuery.isEmpty()) {
             Text(
-                text = "Browse all",
+                text = t("browse_all", language),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = SpotifyWhite,
@@ -1517,7 +1192,7 @@ fun SearchScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "No results found for \"$searchQuery\"",
+                                text = t("no_results_found", language).replace("%s", searchQuery),
                                 color = SpotifyGrey,
                                 fontSize = 15.sp,
                                 textAlign = TextAlign.Center
@@ -1546,6 +1221,8 @@ fun GenreCategoryCard(
     backgroundColor: Color,
     onClick: () -> Unit
 ) {
+    val language = LocalAppLanguage.current
+    val translatedGenre = t("genre_${genre.lowercase()}", language)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1557,7 +1234,7 @@ fun GenreCategoryCard(
             .testTag("genre_card_$genre")
     ) {
         Text(
-            text = genre,
+            text = translatedGenre,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = SpotifyWhite,
@@ -1587,6 +1264,7 @@ fun LibraryScreen(
     currentTrack: TrackEntity?,
     onLikeClick: (TrackEntity) -> Unit
 ) {
+    val language = LocalAppLanguage.current
     var selectedTab by remember { mutableStateOf(0) } // 0 = Playlists, 1 = Liked Songs, 2 = Insights, 3 = Smart Folders
     var showImportMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -1604,7 +1282,7 @@ fun LibraryScreen(
                 .padding(top = 16.dp, bottom = 12.dp)
         ) {
             Text(
-                text = "Your Library",
+                text = t("library", language),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = SpotifyWhite
@@ -1619,7 +1297,7 @@ fun LibraryScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Publish,
-                            contentDescription = "Import MP3 Options",
+                            contentDescription = t("import_songs", language),
                             tint = SpotifyGreen,
                             modifier = Modifier.size(26.dp)
                         )
@@ -1630,7 +1308,7 @@ fun LibraryScreen(
                         modifier = Modifier.background(SpotifySurface)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Import MP3 File", color = SpotifyWhite) },
+                            text = { Text(t("import_songs", language), color = SpotifyWhite) },
                             onClick = {
                                 showImportMenu = false
                                 onImportFileClick()
@@ -1638,7 +1316,7 @@ fun LibraryScreen(
                             leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null, tint = SpotifyGreen) }
                         )
                         DropdownMenuItem(
-                            text = { Text("Import Entire Folder", color = SpotifyWhite) },
+                            text = { Text(t("import_folder", language), color = SpotifyWhite) },
                             onClick = {
                                 showImportMenu = false
                                 onImportFolderClick()
@@ -1654,7 +1332,7 @@ fun LibraryScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
-                        contentDescription = "Create Playlist",
+                        contentDescription = t("create_playlist", language),
                         tint = SpotifyWhite,
                         modifier = Modifier.size(26.dp)
                     )
@@ -1680,7 +1358,7 @@ fun LibraryScreen(
                     .testTag("playlists_tab")
             ) {
                 Text(
-                    "Playlists",
+                    t("playlists", language),
                     color = if (selectedTab == 0) SpotifyBlack else SpotifyWhite,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
@@ -1698,7 +1376,7 @@ fun LibraryScreen(
                     .testTag("liked_songs_tab")
             ) {
                 Text(
-                    "Liked Songs",
+                    t("liked_songs", language),
                     color = if (selectedTab == 1) SpotifyBlack else SpotifyWhite,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
@@ -1716,7 +1394,7 @@ fun LibraryScreen(
                     .testTag("folders_tab")
             ) {
                 Text(
-                    "Smart Folders",
+                    t("smart_folders", language),
                     color = if (selectedTab == 3) SpotifyBlack else SpotifyWhite,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
@@ -1732,7 +1410,7 @@ fun LibraryScreen(
                 modifier = Modifier.testTag("insights_tab")
             ) {
                 Text(
-                    "Insights",
+                    t("insights", language),
                     color = if (selectedTab == 2) SpotifyBlack else SpotifyWhite,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
@@ -1749,7 +1427,7 @@ fun LibraryScreen(
                 ) {
                     item {
                         Text(
-                            text = "Made For You",
+                            text = t("made_for_you", language),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = SpotifyWhite,
@@ -1760,13 +1438,14 @@ fun LibraryScreen(
                     items(getSmartMixes()) { playlist ->
                         PlaylistListItem(
                             playlist = playlist,
+                            language = language,
                             onClick = { onPlaylistClick(playlist) }
                         )
                     }
 
                     item {
                         Text(
-                            text = "Your Playlists",
+                            text = t("your_playlists", language),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = SpotifyWhite,
@@ -1790,7 +1469,7 @@ fun LibraryScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        text = "No custom playlists yet",
+                                        text = t("no_custom_playlists", language),
                                         color = SpotifyGrey,
                                         fontSize = 14.sp
                                     )
@@ -1799,7 +1478,7 @@ fun LibraryScreen(
                                         onClick = onCreatePlaylistClick,
                                         colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen)
                                     ) {
-                                        Text("Create playlist", color = SpotifyBlack, fontWeight = FontWeight.Bold)
+                                        Text(t("create_playlist", language), color = SpotifyBlack, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -1808,6 +1487,7 @@ fun LibraryScreen(
                         items(playlists) { playlist ->
                             PlaylistListItem(
                                 playlist = playlist,
+                                language = language,
                                 onClick = { onPlaylistClick(playlist) }
                             )
                         }
@@ -1826,7 +1506,7 @@ fun LibraryScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Filled.Favorite, contentDescription = null, tint = SpotifyGrey, modifier = Modifier.size(64.dp))
                             Text(
-                                "Songs you like will appear here",
+                                t("liked_songs_empty", language),
                                 color = SpotifyGrey,
                                 fontSize = 15.sp,
                                 modifier = Modifier.padding(top = 8.dp)
@@ -1876,6 +1556,7 @@ fun SmartFoldersSection(
     onLikeClick: (TrackEntity) -> Unit,
     currentTrack: TrackEntity?
 ) {
+    val language = LocalAppLanguage.current
     // Grouping modes: 0 = Physical Folders, 1 = Artist, 2 = Genre, 3 = Import Date
     var groupingMode by remember { mutableStateOf(0) }
     var selectedGroup by remember { mutableStateOf<String?>(null) }
@@ -1921,7 +1602,7 @@ fun SmartFoldersSection(
         if (selectedGroup == null) {
             // Group Selection Grid/List
             Text(
-                text = "Organize SoundWave By:",
+                text = t("organize_by", language),
                 color = SpotifyGrey,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
@@ -1936,10 +1617,10 @@ fun SmartFoldersSection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf(
-                    Pair(0, "📁 Folders"),
-                    Pair(1, "👤 Artists"),
-                    Pair(2, "🎶 Genres"),
-                    Pair(3, "📅 Import Dates")
+                    Pair(0, t("folders_label", language)),
+                    Pair(1, t("artists_label", language)),
+                    Pair(2, t("genres_label", language)),
+                    Pair(3, t("import_dates_label", language))
                 ).forEach { (mode, label) ->
                     val isSelected = groupingMode == mode
                     FilterChip(
@@ -1966,7 +1647,7 @@ fun SmartFoldersSection(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Filled.FolderOpen, contentDescription = null, tint = SpotifyGrey, modifier = Modifier.size(64.dp))
                         Text(
-                            "No tracks found to group",
+                            t("no_tracks_found_group", language),
                             color = SpotifyGrey,
                             fontSize = 15.sp,
                             modifier = Modifier.padding(top = 8.dp)
@@ -2007,8 +1688,16 @@ fun SmartFoldersSection(
                                     )
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Column {
+                                        val displayKey = when (groupKey) {
+                                            "Prepopulated Collection" -> t("prepopulated_collection", language)
+                                            "Today" -> t("today", language)
+                                            "This Week" -> t("this_week", language)
+                                            "This Month" -> t("this_month", language)
+                                            "Earlier This Year" -> t("earlier_this_year", language)
+                                            else -> groupKey
+                                        }
                                         Text(
-                                            text = groupKey,
+                                            text = displayKey,
                                             fontWeight = FontWeight.Bold,
                                             color = SpotifyWhite,
                                             fontSize = 14.sp,
@@ -2016,7 +1705,7 @@ fun SmartFoldersSection(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
-                                            text = "${groupTracks.size} ${if (groupTracks.size == 1) "track" else "tracks"}",
+                                            text = "${groupTracks.size} ${if (groupTracks.size == 1) t("track_singular", language) else t("track_plural", language)}",
                                             color = SpotifyGrey,
                                             fontSize = 11.sp
                                         )
@@ -2052,7 +1741,7 @@ fun SmartFoldersSection(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ArrowBack,
-                        contentDescription = "Back to Folders",
+                        contentDescription = t("back", language),
                         tint = SpotifyWhite,
                         modifier = Modifier.size(18.dp)
                     )
@@ -2074,18 +1763,26 @@ fun SmartFoldersSection(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = when (groupingMode) {
-                                0 -> "Physical Folder"
-                                1 -> "Artist Smart Folder"
-                                2 -> "Genre Smart Folder"
-                                else -> "Time Group"
+                                0 -> t("physical_folder", language)
+                                1 -> t("artist_smart_folder", language)
+                                2 -> t("genre_smart_folder", language)
+                                else -> t("time_group", language)
                             },
                             color = SpotifyGrey,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
+                    val displayGroupKey = when (currentGroupKey) {
+                        "Prepopulated Collection" -> t("prepopulated_collection", language)
+                        "Today" -> t("today", language)
+                        "This Week" -> t("this_week", language)
+                        "This Month" -> t("this_month", language)
+                        "Earlier This Year" -> t("earlier_this_year", language)
+                        else -> currentGroupKey
+                    }
                     Text(
-                        text = currentGroupKey,
+                        text = displayGroupKey,
                         color = SpotifyWhite,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
@@ -2116,6 +1813,7 @@ fun SmartFoldersSection(
 @Composable
 fun PlaylistListItem(
     playlist: PlaylistEntity,
+    language: String,
     onClick: () -> Unit
 ) {
     val isSmart = playlist.id < 0
@@ -2166,7 +1864,7 @@ fun PlaylistListItem(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = playlist.name,
+                    text = localizePlaylistName(playlist.name, language),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = SpotifyWhite,
@@ -2183,7 +1881,7 @@ fun PlaylistListItem(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "Smart Mix",
+                            text = t("smart_mix_badge", language),
                             color = SpotifyGreen,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold
@@ -2192,7 +1890,7 @@ fun PlaylistListItem(
                 }
             }
             Text(
-                text = if (playlist.description.isEmpty()) "Playlist" else playlist.description,
+                text = if (playlist.description.isEmpty()) t("playlist_badge", language) else localizePlaylistDescription(playlist.description, language),
                 fontSize = 13.sp,
                 color = SpotifyGrey,
                 maxLines = 1,
@@ -2207,6 +1905,7 @@ fun PlaylistDetailScreen(
     playlist: PlaylistEntity,
     tracks: List<TrackEntity>,
     allTracks: List<TrackEntity>,
+    language: String,
     onTrackClick: (TrackEntity) -> Unit,
     currentTrack: TrackEntity?,
     isPlaying: Boolean,
@@ -2297,21 +1996,21 @@ fun PlaylistDetailScreen(
                             .padding(start = 16.dp)
                     ) {
                         Text(
-                            text = playlist.name,
+                            text = localizePlaylistName(playlist.name, language),
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = SpotifyWhite
                         )
                         if (playlist.description.isNotEmpty()) {
                             Text(
-                                text = playlist.description,
+                                text = localizePlaylistDescription(playlist.description, language),
                                 fontSize = 14.sp,
                                 color = SpotifyGrey,
                                 modifier = Modifier.padding(top = 4.dp)
                             )
                         }
                         Text(
-                            text = if (isSmart) "Auto-curated mix" else "${tracks.size} songs",
+                            text = if (isSmart) t("auto_curated_mix", language) else "${tracks.size} ${t(if (tracks.size == 1) "song_count" else "songs_count", language)}",
                             fontSize = 13.sp,
                             color = SpotifyGrey,
                             modifier = Modifier.padding(top = 4.dp)
@@ -2341,7 +2040,7 @@ fun PlaylistDetailScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Play", color = SpotifyBlack, fontWeight = FontWeight.Bold)
+                            Text(t("play_button", language), color = SpotifyBlack, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -2356,7 +2055,7 @@ fun PlaylistDetailScreen(
                         ) {
                             Icon(Icons.Filled.Add, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Add Songs", color = SpotifyWhite, fontSize = 13.sp)
+                            Text(t("add_songs", language), color = SpotifyWhite, fontSize = 13.sp)
                         }
                     }
                 }
@@ -2372,9 +2071,9 @@ fun PlaylistDetailScreen(
                     ) {
                         Text(
                             text = if (playlist.id < 0) {
-                                "Listen to more tracks and like songs to populate this mix!"
+                                t("populate_mix_prompt", language)
                             } else {
-                                "This playlist has no songs yet.\nClick 'Add Songs' below to start building!"
+                                t("empty_playlist_prompt", language)
                             },
                             color = SpotifyGrey,
                             textAlign = TextAlign.Center,
@@ -2428,7 +2127,7 @@ fun PlaylistDetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Add Songs", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = SpotifyWhite)
+                            Text(t("add_songs", language), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = SpotifyWhite)
                             Spacer(modifier = Modifier.weight(1f))
                             IconButton(onClick = { showAddSongsSheet = false }) {
                                 Icon(Icons.Filled.Close, contentDescription = "Close", tint = SpotifyWhite)
@@ -2444,7 +2143,7 @@ fun PlaylistDetailScreen(
                                 modifier = Modifier.weight(1f),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("All database songs are already in this playlist!", color = SpotifyGrey, textAlign = TextAlign.Center)
+                                Text(t("all_songs_added", language), color = SpotifyGrey, textAlign = TextAlign.Center)
                             }
                         } else {
                             LazyColumn(
@@ -3176,11 +2875,12 @@ fun SleepTimerDialog(
     onCancelTimer: () -> Unit,
     currentRemainingMs: Long
 ) {
+    val language = LocalAppLanguage.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Sleep Timer",
+                text = t("sleep_timer", language),
                 color = SpotifyWhite,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
@@ -3193,7 +2893,7 @@ fun SleepTimerDialog(
             ) {
                 if (currentRemainingMs > 0) {
                     Text(
-                        text = "Current timer: ${formatSleepTimer(currentRemainingMs)} remaining",
+                        text = t("current_timer_remaining", language).replace("%s", formatSleepTimer(currentRemainingMs)),
                         color = SpotifyGreen,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
@@ -3201,22 +2901,16 @@ fun SleepTimerDialog(
                     )
                 } else {
                     Text(
-                        text = "Stop audio playback after a set time.",
+                        text = t("sleep_timer_desc", language),
                         color = SpotifyGrey,
                         fontSize = 14.sp,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
 
-                val presets = listOf(
-                    5 to "5 Minutes",
-                    15 to "15 Minutes",
-                    30 to "30 Minutes",
-                    45 to "45 Minutes",
-                    60 to "60 Minutes"
-                )
+                val presets = listOf(5, 15, 30, 45, 60)
 
-                presets.forEach { (minutes, label) ->
+                presets.forEach { minutes ->
                     TextButton(
                         onClick = { onSelectTimer(minutes) },
                         modifier = Modifier
@@ -3236,7 +2930,7 @@ fun SleepTimerDialog(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = label,
+                                text = "$minutes " + t("minutes", language),
                                 color = SpotifyWhite,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
@@ -3254,7 +2948,7 @@ fun SleepTimerDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                     modifier = Modifier.testTag("sleep_timer_cancel_btn")
                 ) {
-                    Text("Turn Off Timer", color = SpotifyWhite, fontWeight = FontWeight.Bold)
+                    Text(t("cancel_sleep_timer", language), color = SpotifyWhite, fontWeight = FontWeight.Bold)
                 }
             }
         },
@@ -3263,7 +2957,7 @@ fun SleepTimerDialog(
                 onClick = onDismiss,
                 modifier = Modifier.testTag("sleep_timer_dismiss_btn")
             ) {
-                Text("Close", color = SpotifyWhite)
+                Text(t("close_btn", language), color = SpotifyWhite)
             }
         }
     )
@@ -3555,6 +3249,7 @@ fun DynamicIslandPlayer(
 @Composable
 fun DynamicIslandPermissionBanner() {
     val context = LocalContext.current
+    val language = LocalAppLanguage.current
     var hasPermission by remember { mutableStateOf(android.provider.Settings.canDrawOverlays(context)) }
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -3609,13 +3304,13 @@ fun DynamicIslandPermissionBanner() {
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Enable Dynamic Island",
+                        text = t("enable_dynamic_island", language),
                         fontWeight = FontWeight.Bold,
                         color = SpotifyWhite,
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Get sleek iOS-style floating controls when you minimize the app. Tap to set up!",
+                        text = t("dynamic_island_desc", language),
                         color = SpotifyGrey,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
@@ -3821,14 +3516,14 @@ fun SettingsScreen(
             }
         ) {
             Text(
-                text = "Theme Accent Colors",
+                text = t("theme_accent_title", language),
                 fontWeight = FontWeight.Bold,
                 color = SpotifyWhite,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Text(
-                text = "Select your neon brand flavor for the player interface",
+                text = t("theme_accent_desc", language),
                 color = SpotifyGrey,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -3889,7 +3584,7 @@ fun SettingsScreen(
                                 )
                             }
                             Text(
-                                text = accent.label,
+                                text = t("accent_${accent.name.lowercase()}", language),
                                 color = if (isSelected) SpotifyWhite else SpotifyGrey,
                                 fontSize = 13.sp,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
@@ -3903,23 +3598,23 @@ fun SettingsScreen(
 
             // Floating Dynamic Island Overlay Mode
             Text(
-                text = "Floating Dynamic Island Mode",
+                text = t("floating_island_title", language),
                 fontWeight = FontWeight.Bold,
                 color = SpotifyWhite,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(bottom = 6.dp)
             )
             Text(
-                text = "Choose how the background floating overlay scales",
+                text = t("floating_island_desc", language),
                 color = SpotifyGrey,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
             val modes = listOf(
-                Triple("COMPACT", "Compact Pill", "Always small & unobtrusive"),
-                Triple("EXPANDED", "Expanded Card", "Always shows controls and details"),
-                Triple("AUTO", "Auto-expanding", "Expands on long-press interaction")
+                Triple("COMPACT", t("compact_pill", language), t("compact_pill_desc", language)),
+                Triple("EXPANDED", t("expanded_card", language), t("expanded_card_desc", language)),
+                Triple("AUTO", t("auto_expanding", language), t("auto_expanding_desc", language))
             )
 
             Column(
@@ -4010,13 +3705,13 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "System Overlay Permission Required",
+                                text = t("sys_overlay_perm_title", language),
                                 color = Color(0xFFFF9800),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Tap here to authorize displaying the float bar.",
+                                text = t("sys_overlay_perm_desc", language),
                                 color = SpotifyGrey,
                                 fontSize = 11.sp
                             )
@@ -4072,10 +3767,16 @@ fun SettingsScreen(
                         modifier = Modifier.background(SpotifySurfaceVariant)
                     ) {
                         listOf(
-                            "English 🇺🇸",
+                            "English 🇮🇪",
                             "Español 🇪🇸",
                             "العربية (فلسطين) 🇵🇸",
-                            "فارسی 🇮🇷"
+                            "فارسی 🇮🇷",
+                            "Русский 🇷🇺",
+                            "中文 🇨🇳",
+                            "Bahasa Indonesia 🇮🇩",
+                            "Bahasa Melayu 🇲🇾",
+                            "বাংলা 🇧🇩",
+                            "Português (Brasil) 🇧🇷"
                         ).forEach { lang ->
                             DropdownMenuItem(
                                 text = { Text(text = lang, color = SpotifyWhite) },
@@ -4101,13 +3802,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "System Drawer Controls",
+                        text = t("sys_drawer_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Show playback control notifications in system drawer",
+                        text = t("sys_drawer_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -4148,14 +3849,14 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Acoustic Equalizer",
+                        text = t("acoustic_eq_title", language),
                         fontWeight = FontWeight.Bold,
                         color = SpotifyWhite,
                         fontSize = 14.sp
                     )
                     val isEqualizerEnabled by viewModel.isEqualizerEnabled.collectAsState()
                     Text(
-                        text = if (isEqualizerEnabled) "Equalizer & Sound Effects Active" else "Enhance your offline listening experience",
+                        text = if (isEqualizerEnabled) t("eq_active", language) else t("eq_inactive", language),
                         color = if (isEqualizerEnabled) currentAccent.color else SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -4200,7 +3901,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Open Equalizer Studio",
+                        text = t("open_eq_studio", language),
                         color = SpotifyWhite,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
@@ -4226,19 +3927,19 @@ fun SettingsScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Track Crossfade",
+                            text = t("track_crossfade", language),
                             color = SpotifyWhite,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Overlap preceding and following tracks",
+                            text = t("track_crossfade_desc", language),
                             color = SpotifyGrey,
                             fontSize = 11.sp
                         )
                     }
                     Text(
-                        text = if (crossfadeDuration > 0f) "${String.format("%.1f", crossfadeDuration)}s" else "Off",
+                        text = if (crossfadeDuration > 0f) "${String.format("%.1f", crossfadeDuration)}s" else t("crossfade_off", language),
                         color = currentAccent.color,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -4271,13 +3972,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Replay Gain Control",
+                        text = t("replay_gain_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Level track loudness dynamically to avoid clipping",
+                        text = t("replay_gain_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -4308,19 +4009,19 @@ fun SettingsScreen(
             ) {
                 Column {
                     Text(
-                        text = "Audio Output Device",
+                        text = t("audio_output_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Currently selected audio driver target",
+                        text = t("audio_output_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
                 }
                 Text(
-                    text = "Android Audio Driver",
+                    text = t("audio_driver_label", language),
                     color = SpotifyGrey,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
@@ -4333,8 +4034,8 @@ fun SettingsScreen(
 
         // 3. VISUALIZATION CATEGORY
         SettingsCategoryCard(
-            title = "Visualization Style",
-            subtitle = "Acoustic wave pattern, controls transparency",
+            title = t("vis_style_title", language),
+            subtitle = t("vis_style_desc", language),
             icon = Icons.Default.GraphicEq,
             iconColor = currentAccent.color,
             isExpanded = expandedCategory == "visualization",
@@ -4344,7 +4045,7 @@ fun SettingsScreen(
             }
         ) {
             Text(
-                text = "Acoustic Wave Style",
+                text = t("acoustic_wave_title", language),
                 fontWeight = FontWeight.Bold,
                 color = SpotifyWhite,
                 fontSize = 14.sp,
@@ -4377,8 +4078,9 @@ fun SettingsScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
+                        val styleKey = "style_${style.lowercase().replace(" ", "_")}"
                         Text(
-                            text = style,
+                            text = t(styleKey, language),
                             color = if (isSel) currentAccent.color else SpotifyWhite,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
@@ -4398,13 +4100,13 @@ fun SettingsScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Controls Opacity",
+                            text = t("controls_opacity_title", language),
                             color = SpotifyWhite,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Transparency of player interface overlays",
+                            text = t("controls_opacity_desc", language),
                             color = SpotifyGrey,
                             fontSize = 11.sp
                         )
@@ -4435,8 +4137,8 @@ fun SettingsScreen(
 
         // 4. BACKGROUND CATEGORY
         SettingsCategoryCard(
-            title = "Background",
-            subtitle = "Ambient glow, blur intensity depth",
+            title = t("bg_title", language),
+            subtitle = t("bg_desc", language),
             icon = Icons.Default.Image,
             iconColor = currentAccent.color,
             isExpanded = expandedCategory == "background",
@@ -4453,13 +4155,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Ambient Dynamic Glow",
+                        text = t("ambient_glow_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Render rotating radial gradients based on album art colors",
+                        text = t("ambient_glow_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -4490,13 +4192,13 @@ fun SettingsScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Blur Intensity",
+                            text = t("blur_intensity_title", language),
                             color = SpotifyWhite,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Soft blur depth for player backdrops",
+                            text = t("blur_intensity_desc", language),
                             color = SpotifyGrey,
                             fontSize = 11.sp
                         )
@@ -4527,8 +4229,8 @@ fun SettingsScreen(
 
         // 5. ALBUM ART CATEGORY
         SettingsCategoryCard(
-            title = "Album Art",
-            subtitle = "Download, quality cache cleaners",
+            title = t("album_art_title", language),
+            subtitle = t("album_art_desc", language),
             icon = Icons.Default.Album,
             iconColor = currentAccent.color,
             isExpanded = expandedCategory == "album_art",
@@ -4545,13 +4247,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Download over Wi-Fi Only",
+                        text = t("download_wifi_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Saves mobile cellular data when fetching album covers",
+                        text = t("download_wifi_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -4582,13 +4284,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "High Definition Artwork",
+                        text = t("high_def_art_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Load full resolution pictures when available",
+                        text = t("high_def_art_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -4615,20 +4317,20 @@ fun SettingsScreen(
             Button(
                 onClick = {
                     triggerHapticFeedback(context, "double_pulse")
-                    android.widget.Toast.makeText(context, "Album art cache cleared successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, t("art_cache_cleared_toast", language), android.widget.Toast.LENGTH_SHORT).show()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Clear Album Art Cache", color = SpotifyWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(t("clear_art_cache_btn", language), color = SpotifyWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
 
         // 6. LIBRARY CATEGORY
         SettingsCategoryCard(
-            title = "Library & Folders",
-            subtitle = "Rescan music, offline tracks sort order",
+            title = t("lib_folders_title", language),
+            subtitle = t("lib_folders_sub", language),
             icon = Icons.AutoMirrored.Filled.List,
             iconColor = currentAccent.color,
             isExpanded = expandedCategory == "library",
@@ -4645,13 +4347,13 @@ fun SettingsScreen(
             ) {
                 Column {
                     Text(
-                        text = "Library Sort Order",
+                        text = t("library_sort_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Default sorting for offline lists",
+                        text = t("library_sort_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -4665,7 +4367,13 @@ fun SettingsScreen(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text(text = librarySortOrder, color = SpotifyWhite, fontSize = 12.sp)
+                        val sortLabelKey = when (librarySortOrder) {
+                            "Title" -> "sort_title"
+                            "Artist" -> "sort_artist"
+                            "Date Added" -> "sort_date_added"
+                            else -> "sort_title"
+                        }
+                        Text(text = t(sortLabelKey, language), color = SpotifyWhite, fontSize = 12.sp)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(16.dp))
                     }
@@ -4676,8 +4384,14 @@ fun SettingsScreen(
                         modifier = Modifier.background(SpotifySurfaceVariant)
                     ) {
                         listOf("Title", "Artist", "Date Added").forEach { sort ->
+                            val key = when (sort) {
+                                "Title" -> "sort_title"
+                                "Artist" -> "sort_artist"
+                                "Date Added" -> "sort_date_added"
+                                else -> "sort_title"
+                            }
                             DropdownMenuItem(
-                                text = { Text(text = sort, color = SpotifyWhite) },
+                                text = { Text(text = t(key, language), color = SpotifyWhite) },
                                 onClick = {
                                     librarySortOrder = sort
                                     sharedPrefs.edit().putString("pref_sort_order", sort).apply()
@@ -4706,7 +4420,7 @@ fun SettingsScreen(
                     }
                     isScanning = false
                     triggerHapticFeedback(context, "double_pulse")
-                    android.widget.Toast.makeText(context, "Rescan completed! Found 68 audio files.", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, t("rescan_completed_toast", language), android.widget.Toast.LENGTH_SHORT).show()
                 }
 
                 Column(
@@ -4722,8 +4436,8 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("SCANNING SYSTEM DIRECTORIES...", color = SpotifyGrey, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Text("${scannedCount} files", color = currentAccent.color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(t("scanning_sys_dirs", language), color = SpotifyGrey, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(t("scanned_files_count", language).replace("%d", scannedCount.toString()), color = currentAccent.color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     LinearProgressIndicator(
@@ -4745,15 +4459,15 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Rescan Music Folders", color = SpotifyBlack, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(t("rescan_folders_btn", language), color = SpotifyBlack, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
 
         // 7. HEADSET/BLUETOOTH CATEGORY
         SettingsCategoryCard(
-            title = "Headset & Bluetooth",
-            subtitle = "Connection responders, pause on disconnect",
+            title = t("headset_bt_title", language),
+            subtitle = t("headset_bt_sub", language),
             icon = Icons.Default.Headset,
             iconColor = currentAccent.color,
             isExpanded = expandedCategory == "headset_bluetooth",
@@ -4770,13 +4484,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Pause on Disconnect",
+                        text = t("pause_on_disconnect_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Automatically pause music when headphones are unplugged",
+                        text = t("pause_on_disconnect_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -4807,13 +4521,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Resume on Connection",
+                        text = t("resume_on_connection_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Resume audio immediately when Bluetooth headset links",
+                        text = t("resume_on_connection_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -4837,8 +4551,8 @@ fun SettingsScreen(
 
         // 8. SLEEP TIMER & MISC CATEGORY
         SettingsCategoryCard(
-            title = "Sleep Timer & Lock Screen",
-            subtitle = "Sleep countdown timers, haptic levels, custom widgets",
+            title = t("sleep_lock_title", language),
+            subtitle = t("sleep_lock_sub", language),
             icon = Icons.Default.AccessTime,
             iconColor = currentAccent.color,
             isExpanded = expandedCategory == "sleep_timer_misc",
@@ -4859,7 +4573,7 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Sleep Timer Countdown",
+                    text = t("sleep_timer_countdown", language),
                     fontWeight = FontWeight.Bold,
                     color = SpotifyWhite,
                     fontSize = 14.sp
@@ -4867,9 +4581,9 @@ fun SettingsScreen(
             }
             Text(
                 text = if (sleepTimerRemaining > 0) {
-                    "Stops playback in ${formatSleepTimer(sleepTimerRemaining)}"
+                    t("stops_playback_in", language).replace("%s", formatSleepTimer(sleepTimerRemaining))
                 } else {
-                    "Automatically stop audio playback after duration"
+                    t("stops_playback_duration", language)
                 },
                 color = if (sleepTimerRemaining > 0) currentAccent.color else SpotifyGrey,
                 fontSize = 11.sp,
@@ -4886,7 +4600,7 @@ fun SettingsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "ACTIVE COUNTDOWN",
+                        text = t("active_countdown", language),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = SpotifyGrey,
@@ -4915,7 +4629,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(18.dp))
 
                     Text(
-                        text = "Extend Timer",
+                        text = t("extend_timer", language),
                         fontSize = 11.sp,
                         color = SpotifyGrey,
                         fontWeight = FontWeight.Bold,
@@ -4961,7 +4675,7 @@ fun SettingsScreen(
                             .testTag("cancel_sleep_timer_btn"),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Cancel Sleep Timer", color = SpotifyWhite, fontWeight = FontWeight.Bold)
+                        Text(t("cancel_sleep_timer_btn_text", language), color = SpotifyWhite, fontWeight = FontWeight.Bold)
                     }
                 }
             } else {
@@ -4974,13 +4688,13 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Custom Duration",
+                            text = t("custom_duration", language),
                             color = SpotifyWhite,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "${customMinutes.toInt()} min",
+                            text = t("custom_min_duration", language).replace("%d", customMinutes.toInt().toString()),
                             color = currentAccent.color,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -5013,7 +4727,7 @@ fun SettingsScreen(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
-                            text = "Start Sleep Timer",
+                            text = t("start_sleep_timer_btn", language),
                             color = SpotifyBlack,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
@@ -5032,13 +4746,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Lock Screen Controls",
+                        text = t("lockscreen_controls_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Show responsive media panel directly on lock screen",
+                        text = t("lockscreen_controls_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -5069,13 +4783,13 @@ fun SettingsScreen(
             ) {
                 Column {
                     Text(
-                        text = "Haptic Response Level",
+                        text = t("haptic_response_title", language),
                         color = SpotifyWhite,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Tactile feedback pulse intensity",
+                        text = t("haptic_response_desc", language),
                         color = SpotifyGrey,
                         fontSize = 11.sp
                     )
@@ -5089,7 +4803,14 @@ fun SettingsScreen(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text(text = hapticFeedbackIntensity, color = SpotifyWhite, fontSize = 12.sp)
+                        val hapticLabelKey = when (hapticFeedbackIntensity) {
+                            "Off" -> "haptic_off"
+                            "Soft" -> "haptic_soft"
+                            "Crisp" -> "haptic_crisp"
+                            "Strong" -> "haptic_strong"
+                            else -> "haptic_crisp"
+                        }
+                        Text(text = t(hapticLabelKey, language), color = SpotifyWhite, fontSize = 12.sp)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = SpotifyWhite, modifier = Modifier.size(16.dp))
                     }
@@ -5100,8 +4821,15 @@ fun SettingsScreen(
                         modifier = Modifier.background(SpotifySurfaceVariant)
                     ) {
                         listOf("Off", "Soft", "Crisp", "Strong").forEach { lvl ->
+                            val key = when (lvl) {
+                                "Off" -> "haptic_off"
+                                "Soft" -> "haptic_soft"
+                                "Crisp" -> "haptic_crisp"
+                                "Strong" -> "haptic_strong"
+                                else -> "haptic_crisp"
+                            }
                             DropdownMenuItem(
-                                text = { Text(text = lvl, color = SpotifyWhite) },
+                                text = { Text(text = t(key, language), color = SpotifyWhite) },
                                 onClick = {
                                     hapticFeedbackIntensity = lvl
                                     sharedPrefs.edit().putString("pref_haptic_intensity", lvl).apply()
@@ -5125,6 +4853,7 @@ fun ListeningInsightsDashboard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val language = LocalAppLanguage.current
     
     val totalSeconds = remember { mutableStateOf(com.example.data.ListeningStatsManager.getTotalListeningTimeSeconds(context)) }
     val topGenres = remember { mutableStateOf(com.example.data.ListeningStatsManager.getTopGenres(context)) }
@@ -5155,21 +4884,21 @@ fun ListeningInsightsDashboard(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Total Listening Time",
+                    text = t("total_listening_time", language),
                     color = SpotifyGrey,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = formatListeningTime(totalSeconds.value),
+                    text = formatListeningTime(totalSeconds.value, language),
                     color = SpotifyGreen,
                     fontSize = 32.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Your music habits are looking great! Here is a visual overview of your music journey.",
+                    text = t("music_habits_desc", language),
                     color = SpotifyWhite.copy(alpha = 0.8f),
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
@@ -5180,7 +4909,7 @@ fun ListeningInsightsDashboard(
 
         // Top Genres Section
         Text(
-            text = "Top Genres",
+            text = t("top_genres", language),
             color = SpotifyWhite,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
@@ -5199,7 +4928,7 @@ fun ListeningInsightsDashboard(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (topGenres.value.isEmpty()) {
-                    Text("No genre stats recorded yet", color = SpotifyGrey, fontSize = 13.sp)
+                    Text(t("no_genre_stats", language), color = SpotifyGrey, fontSize = 13.sp)
                 } else {
                     val maxSeconds = topGenres.value.firstOrNull()?.second ?: 1L
                     val colors = listOf(SpotifyGreen, Color(0xFF2196F3), Color(0xFF9C27B0), Color(0xFFFF9800), Color(0xFFE91E63))
@@ -5216,7 +4945,7 @@ fun ListeningInsightsDashboard(
                             ) {
                                 Text(text = genre, color = SpotifyWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 Text(
-                                    text = "${seconds / 60}m",
+                                    text = "${seconds / 60} ${t("min_unit", language)}",
                                     color = SpotifyGrey,
                                     fontSize = 12.sp
                                 )
@@ -5243,7 +4972,7 @@ fun ListeningInsightsDashboard(
 
         // Top Artists Section
         Text(
-            text = "Favorite Artists",
+            text = t("favorite_artists", language),
             color = SpotifyWhite,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
@@ -5262,7 +4991,7 @@ fun ListeningInsightsDashboard(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (topArtists.value.isEmpty()) {
-                    Text("No artist stats recorded yet", color = SpotifyGrey, fontSize = 13.sp)
+                    Text(t("no_artist_stats", language), color = SpotifyGrey, fontSize = 13.sp)
                 } else {
                     topArtists.value.forEach { (artist, seconds) ->
                         Row(
@@ -5292,7 +5021,7 @@ fun ListeningInsightsDashboard(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Listened: ${seconds / 60} minutes",
+                                    text = t("listened_time", language).replace("%d", (seconds / 60).toString()),
                                     color = SpotifyGrey,
                                     fontSize = 12.sp
                                 )
@@ -5316,7 +5045,7 @@ fun ListeningInsightsDashboard(
         
         if (sortedTracks.isNotEmpty()) {
             Text(
-                text = "Most Played Tracks",
+                text = t("most_played_tracks", language),
                 color = SpotifyWhite,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
@@ -5338,12 +5067,12 @@ fun ListeningInsightsDashboard(
     }
 }
 
-fun formatListeningTime(seconds: Long): String {
+fun formatListeningTime(seconds: Long, language: String): String {
     val hours = seconds / 3600
     val minutes = (seconds % 3600) / 60
     return when {
-        hours > 0 -> "${hours} hr ${minutes} min"
-        else -> "${minutes} min"
+        hours > 0 -> "${hours} ${t("hr_unit", language)} ${minutes} ${t("min_unit", language)}"
+        else -> "${minutes} ${t("min_unit", language)}"
     }
 }
 
@@ -5623,6 +5352,7 @@ fun EqualizerDialog(
     viewModel: MusicViewModel,
     onDismiss: () -> Unit
 ) {
+    val language = LocalAppLanguage.current
     val isEqualizerEnabled by viewModel.isEqualizerEnabled.collectAsState()
     val currentPresetIndex by viewModel.currentPresetIndex.collectAsState()
     val bandGains by viewModel.bandGains.collectAsState()
@@ -5649,7 +5379,7 @@ fun EqualizerDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Sound Control",
+                        text = t("sound_control", language),
                         color = SpotifyWhite,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -5690,7 +5420,7 @@ fun EqualizerDialog(
             ) {
                 Column {
                     Text(
-                        text = "Acoustic Profiles (Presets)",
+                        text = t("presets_title", language),
                         color = SpotifyGrey,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -5712,7 +5442,7 @@ fun EqualizerDialog(
                                 modifier = Modifier.testTag("preset_custom")
                             ) {
                                 Text(
-                                    text = "Custom",
+                                    text = t("custom_preset", language),
                                     color = if (isSelected) SpotifyBlack else SpotifyWhite,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
@@ -5754,7 +5484,7 @@ fun EqualizerDialog(
 
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Dynamic Frequency Response",
+                        text = t("frequency_response", language),
                         color = SpotifyGrey,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -5814,7 +5544,7 @@ fun EqualizerDialog(
 
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "Acoustic Effects Boosters",
+                        text = t("effects_boosters", language),
                         color = SpotifyGrey,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -5837,7 +5567,7 @@ fun EqualizerDialog(
                                 }
                             },
                             valueRange = 0f..1000f,
-                            label = "Deep Bass Boost",
+                            label = t("bass_boost", language),
                             enabled = isEqualizerEnabled,
                             accentColor = themeAccent.color,
                             modifier = Modifier.testTag("bass_boost_slider")
@@ -5851,7 +5581,7 @@ fun EqualizerDialog(
                                 }
                             },
                             valueRange = 0f..1000f,
-                            label = "Spatial 3D Surround",
+                            label = t("spatial_surround", language),
                             enabled = isEqualizerEnabled,
                             accentColor = themeAccent.color,
                             modifier = Modifier.testTag("virtualizer_slider")
@@ -5868,7 +5598,7 @@ fun EqualizerDialog(
                             .padding(12.dp)
                     ) {
                         Text(
-                            text = "💡 Toggle the switch ON at the top to activate custom frequency bands, acoustic presets, deep bass boost, and spatial 3D audio!",
+                            text = t("eq_toggle_tip", language),
                             color = themeAccent.color,
                             fontSize = 11.sp,
                             lineHeight = 15.sp,
@@ -5887,7 +5617,7 @@ fun EqualizerDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = themeAccent.color),
                 shape = RoundedCornerShape(24.dp)
             ) {
-                Text("Close", color = SpotifyBlack, fontWeight = FontWeight.Bold)
+                Text(t("close_btn", language), color = SpotifyBlack, fontWeight = FontWeight.Bold)
             }
         }
     )
