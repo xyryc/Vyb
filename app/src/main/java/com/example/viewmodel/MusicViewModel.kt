@@ -706,6 +706,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val presetNames = playerManager.presetNames
     val bandCenterFreqs = playerManager.bandCenterFreqs
 
+    // Audio Output Device Delegation
+    val availableOutputDevices = playerManager.availableOutputDevices
+    val selectedOutputDevice = playerManager.selectedOutputDevice
+
+    fun selectOutputDevice(device: com.example.player.AudioDeviceWrapper) {
+        playerManager.selectOutputDevice(device)
+    }
+
+    fun updateAvailableDevices() {
+        playerManager.updateAvailableDevices()
+    }
+
     fun setEqualizerEnabled(enabled: Boolean) {
         playerManager.setEqualizerEnabled(enabled)
     }

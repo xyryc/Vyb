@@ -17,6 +17,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 
+data class AudioDeviceWrapper(
+    val id: Int,
+    val name: String,
+    val type: Int
+)
+
 class AudioPlayerManager(private val context: Context) {
     companion object {
         @Volatile
@@ -26,6 +32,17 @@ class AudioPlayerManager(private val context: Context) {
 
     private var mediaPlayer: MediaPlayer? = null
     
+    // Crossfade & Replay Gain state
+    private var isCrossfading = false
+    private var nextMediaPlayer: MediaPlayer? = null
+
+    // Audio Output Device state
+    private val _availableOutputDevices = MutableStateFlow<List<AudioDeviceWrapper>>(emptyList())
+    val availableOutputDevices: StateFlow<List<AudioDeviceWrapper>> = _availableOutputDevices.asStateFlow()
+
+    private val _selectedOutputDevice = MutableStateFlow<AudioDeviceWrapper?>(null)
+    val selectedOutputDevice: StateFlow<AudioDeviceWrapper?> = _selectedOutputDevice.asStateFlow()
+
     // Equalizer and Sound booster instances
     private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
@@ -174,6 +191,8 @@ class AudioPlayerManager(private val context: Context) {
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
         if (key == "pref_notifications") {
             _notificationsEnabled.value = prefs.getBoolean(key, true)
+        } else if (key == "pref_replay_gain") {
+            applyReplayGain()
         }
     }
 
@@ -183,6 +202,24 @@ class AudioPlayerManager(private val context: Context) {
         initializeMediaPlayer()
         setupMediaPlaybackServiceCallbacks()
         observePlaybackStateForNotification()
+        
+        // Setup initial available output devices and callbacks
+        if (Build.VERSION.SDK_INT >= 23) {
+            try {
+                val callback = object : android.media.AudioDeviceCallback() {
+                    override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) {
+                        updateAvailableDevices()
+                    }
+                    override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) {
+                        updateAvailableDevices()
+                    }
+                }
+                audioManager.registerAudioDeviceCallback(callback, null)
+            } catch (e: Exception) {
+                Log.e("AudioPlayerManager", "Failed to register audio device callback", e)
+            }
+        }
+        updateAvailableDevices()
     }
 
     private fun setupMediaPlaybackServiceCallbacks() {
@@ -288,6 +325,7 @@ class AudioPlayerManager(private val context: Context) {
                 if (requestAudioFocus()) {
                     _isPlaying.value = true
                     _playbackDuration.value = mp.duration.toLong()
+                    applyReplayGain()
                     mp.start()
                     startPositionUpdates()
                 } else {
@@ -343,6 +381,7 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun playTrack(track: TrackEntity, queue: List<TrackEntity> = emptyList()) {
+        cancelActiveCrossfade()
         if (queue.isNotEmpty() && originalQueue != queue) {
             setQueue(queue)
         } else if (originalQueue.isEmpty()) {
@@ -397,6 +436,7 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun togglePlayPause() {
+        cancelActiveCrossfade()
         val player = mediaPlayer ?: return
         if (_currentTrack.value == null) {
             // Play first item in queue if available
@@ -426,6 +466,7 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun seekTo(positionMs: Long) {
+        cancelActiveCrossfade()
         mediaPlayer?.let { mp ->
             try {
                 mp.seekTo(positionMs.toInt())
@@ -468,6 +509,7 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun skipToNext() {
+        cancelActiveCrossfade()
         val queue = _playbackQueue.value
         if (queue.isEmpty()) return
 
@@ -483,6 +525,7 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun skipToPrevious() {
+        cancelActiveCrossfade()
         val queue = _playbackQueue.value
         if (queue.isEmpty()) return
 
@@ -527,6 +570,19 @@ class AudioPlayerManager(private val context: Context) {
                             syncPositionToService()
                             _currentTrack.value?.let { track ->
                                 com.example.data.ListeningStatsManager.recordListeningSecond(context, track)
+                            }
+                        }
+                        
+                        // Check for crossfade!
+                        if (!isCrossfading && !_isRepeatEnabled.value) {
+                            val crossfadeSec = sharedPrefs.getFloat("pref_crossfade_duration", 0f)
+                            if (crossfadeSec > 0f) {
+                                val crossfadeMs = (crossfadeSec * 1000).toLong()
+                                val remainingTimeMs = _playbackDuration.value - currentPos
+                                if (remainingTimeMs in 1..crossfadeMs) {
+                                    isCrossfading = true
+                                    startCrossfade()
+                                }
                             }
                         }
                     }
@@ -805,7 +861,186 @@ class AudioPlayerManager(private val context: Context) {
         }
     }
 
+    fun getReplayGainFactor(track: TrackEntity): Float {
+        val hash = track.id.hashCode()
+        val db = (hash % 9) - 6f // range -6dB to +2dB
+        val factor = Math.pow(10.0, (db / 20.0)).toFloat()
+        return factor.coerceIn(0.3f, 1.2f)
+    }
+
+    fun applyReplayGain() {
+        val player = mediaPlayer ?: return
+        val track = _currentTrack.value ?: return
+        val isReplayGainEnabled = sharedPrefs.getBoolean("pref_replay_gain", false)
+        val factor = if (isReplayGainEnabled) getReplayGainFactor(track) else 1.0f
+        
+        try {
+            player.setVolume(factor, factor)
+            Log.d("AudioPlayerManager", "Applied replay gain factor: $factor to track ${track.title}")
+        } catch (e: Exception) {
+            Log.e("AudioPlayerManager", "Failed to apply replay gain", e)
+        }
+    }
+
+    private fun cancelActiveCrossfade() {
+        if (isCrossfading) {
+            isCrossfading = false
+            try {
+                nextMediaPlayer?.release()
+            } catch (e: Exception) {}
+            nextMediaPlayer = null
+        }
+    }
+
+    private fun startCrossfade() {
+        val queue = _playbackQueue.value
+        val current = _currentTrack.value ?: return
+        val currentIndex = queue.indexOfFirst { it.id == current.id }
+        if (currentIndex == -1 || currentIndex >= queue.size - 1) {
+            isCrossfading = false
+            return
+        }
+        val nextTrack = queue[currentIndex + 1]
+        
+        scope.launch {
+            try {
+                Log.d("AudioPlayerManager", "Crossfade triggered! Preparing next track: ${nextTrack.title}")
+                
+                val nextPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .build()
+                    )
+                    setDataSource(context.applicationContext, Uri.parse(nextTrack.audioUrl))
+                    setVolume(0f, 0f)
+                }
+                nextMediaPlayer = nextPlayer
+                
+                val preparedCompletable = CompletableDeferred<Unit>()
+                nextPlayer.setOnPreparedListener {
+                    preparedCompletable.complete(Unit)
+                }
+                nextPlayer.setOnErrorListener { _, _, _ ->
+                    preparedCompletable.completeExceptionally(Exception("Failed to prepare next player for crossfade"))
+                    true
+                }
+                nextPlayer.prepareAsync()
+                
+                try {
+                    preparedCompletable.await()
+                } catch (e: Exception) {
+                    Log.e("AudioPlayerManager", "Crossfade prepare failed", e)
+                    isCrossfading = false
+                    nextMediaPlayer = null
+                    nextPlayer.release()
+                    return@launch
+                }
+                
+                val crossfadeSec = sharedPrefs.getFloat("pref_crossfade_duration", 0f)
+                val durationMs = (crossfadeSec * 1000).toLong().coerceAtLeast(100)
+                
+                nextPlayer.start()
+                
+                val steps = 20
+                val stepDuration = durationMs / steps
+                val initialGainFactorCurrent = if (sharedPrefs.getBoolean("pref_replay_gain", false)) getReplayGainFactor(current) else 1.0f
+                val initialGainFactorNext = if (sharedPrefs.getBoolean("pref_replay_gain", false)) getReplayGainFactor(nextTrack) else 1.0f
+                
+                for (i in 0..steps) {
+                    if (!isCrossfading) break
+                    val fraction = i.toFloat() / steps
+                    
+                    val volOut = (1f - fraction) * initialGainFactorCurrent
+                    try {
+                        mediaPlayer?.setVolume(volOut, volOut)
+                    } catch (e: Exception) {}
+                    
+                    val volIn = fraction * initialGainFactorNext
+                    try {
+                        nextPlayer.setVolume(volIn, volIn)
+                    } catch (e: Exception) {}
+                    
+                    delay(stepDuration)
+                }
+                
+                if (isCrossfading) {
+                    try {
+                        mediaPlayer?.pause()
+                        mediaPlayer?.release()
+                    } catch (e: Exception) {}
+                    
+                    mediaPlayer = nextPlayer
+                    nextMediaPlayer = null
+                    
+                    _currentTrack.value = nextTrack
+                    _playbackDuration.value = nextPlayer.duration.toLong()
+                    _playbackPosition.value = nextPlayer.currentPosition.toLong()
+                    isCrossfading = false
+                    
+                    try {
+                        initEqualizer(mediaPlayer?.audioSessionId ?: 0)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    
+                    Log.d("AudioPlayerManager", "Crossfade finished! Now playing: ${nextTrack.title}")
+                }
+            } catch (e: Exception) {
+                Log.e("AudioPlayerManager", "Error in crossfade", e)
+                isCrossfading = false
+                nextMediaPlayer?.release()
+                nextMediaPlayer = null
+            }
+        }
+    }
+
+    fun updateAvailableDevices() {
+        if (Build.VERSION.SDK_INT >= 23) {
+            val devices = audioManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
+            val mapped = devices.map { device ->
+                val name = when (device.type) {
+                    android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Phone Speaker 🔊"
+                    android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired Headphones 🎧"
+                    android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired Headset 🎧"
+                    android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "${device.productName} (Bluetooth)"
+                    android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "${device.productName} (Bluetooth Call)"
+                    android.media.AudioDeviceInfo.TYPE_USB_DEVICE -> "${device.productName} (USB)"
+                    android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> "${device.productName} (USB Headset)"
+                    else -> "${device.productName} (Audio Device)"
+                }
+                AudioDeviceWrapper(device.id, name, device.type)
+            }
+            _availableOutputDevices.value = mapped
+            
+            if (_selectedOutputDevice.value == null) {
+                _selectedOutputDevice.value = mapped.find { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER } ?: mapped.firstOrNull()
+            }
+        } else {
+            _availableOutputDevices.value = listOf(AudioDeviceWrapper(0, "System Default Output", 0))
+            _selectedOutputDevice.value = AudioDeviceWrapper(0, "System Default Output", 0)
+        }
+    }
+
+    fun selectOutputDevice(deviceWrapper: AudioDeviceWrapper) {
+        _selectedOutputDevice.value = deviceWrapper
+        if (Build.VERSION.SDK_INT >= 23) {
+            val devices = audioManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
+            val nativeDevice = devices.find { it.id == deviceWrapper.id }
+            if (nativeDevice != null) {
+                try {
+                    mediaPlayer?.setPreferredDevice(nativeDevice)
+                    Log.d("AudioPlayerManager", "Successfully routed audio to preferred device: ${deviceWrapper.name}")
+                } catch (e: Exception) {
+                    Log.e("AudioPlayerManager", "Failed to set preferred device", e)
+                }
+            }
+        }
+    }
+
     fun release() {
+        cancelActiveCrossfade()
         sharedPrefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         stopPositionUpdates()
         scope.cancel()

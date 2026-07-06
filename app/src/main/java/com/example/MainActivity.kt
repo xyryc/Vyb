@@ -2478,7 +2478,6 @@ fun ExpandedPlayerScreen(
                     .then(headerModifier)
             ) {
                 Box(
-                    modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     IconButton(
@@ -2497,11 +2496,12 @@ fun ExpandedPlayerScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(2f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
                 )
 
                 Row(
-                    modifier = Modifier.weight(1.5f),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -2515,7 +2515,8 @@ fun ExpandedPlayerScreen(
                         Icon(
                             imageVector = if (showLyrics) Icons.Filled.Lyrics else Icons.Outlined.Lyrics,
                             contentDescription = "Toggle Lyrics",
-                            tint = if (showLyrics) themeAccent.color else SpotifyWhite
+                            tint = if (showLyrics) themeAccent.color else SpotifyWhite,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                     IconButton(
@@ -2528,20 +2529,20 @@ fun ExpandedPlayerScreen(
                         Icon(
                             imageVector = if (showVisualizer) Icons.Filled.GraphicEq else Icons.Outlined.GraphicEq,
                             contentDescription = "Toggle Visualizer",
-                            tint = if (showVisualizer) SpotifyGreen else SpotifyWhite
+                            tint = if (showVisualizer) SpotifyGreen else SpotifyWhite,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                     IconButton(
                         onClick = onEqualizerClick,
                         modifier = Modifier.testTag("player_equalizer_btn")
                     ) {
-                        Icon(Icons.Filled.Tune, contentDescription = "Equalizer", tint = SpotifyWhite)
-                    }
-                    IconButton(
-                        onClick = onAddToPlaylistClick,
-                        modifier = Modifier.testTag("player_add_playlist_btn")
-                    ) {
-                        Icon(Icons.Filled.PlaylistAdd, contentDescription = "Add to playlist", tint = SpotifyWhite)
+                        Icon(
+                            imageVector = Icons.Filled.Tune,
+                            contentDescription = "Equalizer",
+                            tint = SpotifyWhite,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
@@ -3478,6 +3479,10 @@ fun SettingsScreen(
     var resumeOnConnect by remember {
         mutableStateOf(sharedPrefs.getBoolean("pref_resume_on_connect", false))
     }
+    val availableDevices by viewModel.availableOutputDevices.collectAsState()
+    val selectedDevice by viewModel.selectedOutputDevice.collectAsState()
+    var showDeviceMenu by remember { mutableStateOf(false) }
+
     var lockScreenWidgetEnabled by remember {
         mutableStateOf(sharedPrefs.getBoolean("pref_lockscreen_widget", true))
     }
@@ -4007,7 +4012,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = t("audio_output_title", language),
                         color = SpotifyWhite,
@@ -4020,15 +4025,37 @@ fun SettingsScreen(
                         fontSize = 11.sp
                     )
                 }
-                Text(
-                    text = t("audio_driver_label", language),
-                    color = SpotifyGrey,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier
-                        .background(SpotifySurfaceVariant, RoundedCornerShape(6.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                )
+                Box {
+                    Text(
+                        text = selectedDevice?.name ?: t("audio_driver_label", language),
+                        color = SpotifyWhite,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .background(SpotifySurfaceVariant, RoundedCornerShape(6.dp))
+                            .clickable {
+                                viewModel.updateAvailableDevices()
+                                showDeviceMenu = true
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                    DropdownMenu(
+                        expanded = showDeviceMenu,
+                        onDismissRequest = { showDeviceMenu = false },
+                        modifier = Modifier.background(SpotifySurfaceVariant)
+                    ) {
+                        availableDevices.forEach { device ->
+                            DropdownMenuItem(
+                                text = { Text(device.name, color = SpotifyWhite, fontSize = 13.sp) },
+                                onClick = {
+                                    viewModel.selectOutputDevice(device)
+                                    showDeviceMenu = false
+                                    triggerHapticFeedback(context, "snap")
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -4368,10 +4395,10 @@ fun SettingsScreen(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         val sortLabelKey = when (librarySortOrder) {
-                            "Title" -> "sort_title"
-                            "Artist" -> "sort_artist"
-                            "Date Added" -> "sort_date_added"
-                            else -> "sort_title"
+                            "Title" -> "sort_track_title"
+                            "Artist" -> "sort_artist_name"
+                            "Date Added" -> "sort_import_date"
+                            else -> "sort_track_title"
                         }
                         Text(text = t(sortLabelKey, language), color = SpotifyWhite, fontSize = 12.sp)
                         Spacer(modifier = Modifier.width(4.dp))
@@ -4385,10 +4412,10 @@ fun SettingsScreen(
                     ) {
                         listOf("Title", "Artist", "Date Added").forEach { sort ->
                             val key = when (sort) {
-                                "Title" -> "sort_title"
-                                "Artist" -> "sort_artist"
-                                "Date Added" -> "sort_date_added"
-                                else -> "sort_title"
+                                "Title" -> "sort_track_title"
+                                "Artist" -> "sort_artist_name"
+                                "Date Added" -> "sort_import_date"
+                                else -> "sort_track_title"
                             }
                             DropdownMenuItem(
                                 text = { Text(text = t(key, language), color = SpotifyWhite) },

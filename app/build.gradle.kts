@@ -14,7 +14,7 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.musicplayer.vznqpk"
+    applicationId = "com.stonewellstudio.vyb"
     minSdk = 24
     targetSdk = 36
     versionCode = 1
@@ -25,11 +25,17 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      val localProperties = java.util.Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) {
+          file.inputStream().use { load(it) }
+        }
+      }
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: localProperties.getProperty("keystore.path") ?: "my-upload-key.jks"
       storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      storePassword = System.getenv("STORE_PASSWORD") ?: localProperties.getProperty("keystore.password")
+      keyAlias = localProperties.getProperty("keystore.alias") ?: "upload"
+      keyPassword = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty("keystore.keyPassword")
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
