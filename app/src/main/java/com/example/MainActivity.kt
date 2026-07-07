@@ -488,6 +488,7 @@ fun MainAppScreen(
                             playlists = playlists,
                             likedTracks = likedTracks,
                             allTracks = allTracks,
+                            viewModel = viewModel,
                             onPlaylistClick = { viewModel.navigateTo(ScreenState.PlaylistDetail(it)) },
                             onTrackClick = { track -> viewModel.playTrack(track, likedTracks) },
                             onCreatePlaylistClick = { viewModel.showCreatePlaylistDialog(true) },
@@ -1282,6 +1283,7 @@ fun LibraryScreen(
     playlists: List<PlaylistEntity>,
     likedTracks: List<TrackEntity>,
     allTracks: List<TrackEntity>,
+    viewModel: MusicViewModel,
     onPlaylistClick: (PlaylistEntity) -> Unit,
     onTrackClick: (TrackEntity) -> Unit,
     onCreatePlaylistClick: () -> Unit,
@@ -1559,6 +1561,7 @@ fun LibraryScreen(
             2 -> {
                 ListeningInsightsDashboard(
                     tracks = allTracks,
+                    viewModel = viewModel,
                     onTrackClick = onTrackClick,
                     onLikeClick = onLikeClick
                 )
@@ -5310,8 +5313,300 @@ fun SettingsScreen(
 }
 
 @Composable
+fun LiveEqualizerPulse(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "EQ")
+    
+    val height1 by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(450, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "EQ1"
+    )
+    val height2 by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(350, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "EQ2"
+    )
+    val height3 by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "EQ3"
+    )
+
+    Row(
+        modifier = modifier.height(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Box(modifier = Modifier.width(3.dp).fillMaxHeight(height1).background(SpotifyGreen, RoundedCornerShape(1.dp)))
+        Box(modifier = Modifier.width(3.dp).fillMaxHeight(height2).background(SpotifyGreen, RoundedCornerShape(1.dp)))
+        Box(modifier = Modifier.width(3.dp).fillMaxHeight(height3).background(SpotifyGreen, RoundedCornerShape(1.dp)))
+    }
+}
+
+@Composable
+fun WeeklyActivityChart(
+    dailyStats: List<Pair<String, Long>>,
+    language: String,
+    modifier: Modifier = Modifier
+) {
+    val maxSeconds = remember(dailyStats) { dailyStats.maxOfOrNull { it.second } ?: 1L }
+    val maxVal = if (maxSeconds > 0) maxSeconds.toFloat() else 1f
+    
+    val accentGreen = SpotifyGreen
+    val normalGreen = Color(0xFF2E7D32)
+    val normalGreenDark = Color(0xFF1B5E20)
+    val accentGrey = SpotifyGrey
+    
+    val calendar = java.util.Calendar.getInstance()
+    val todayName = when (calendar.get(java.util.Calendar.DAY_OF_WEEK)) {
+        java.util.Calendar.MONDAY -> "Mon"
+        java.util.Calendar.TUESDAY -> "Tue"
+        java.util.Calendar.WEDNESDAY -> "Wed"
+        java.util.Calendar.THURSDAY -> "Thu"
+        java.util.Calendar.FRIDAY -> "Fri"
+        java.util.Calendar.SATURDAY -> "Sat"
+        java.util.Calendar.SUNDAY -> "Sun"
+        else -> ""
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(SpotifySurfaceVariant, RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Weekly Activity",
+                color = SpotifyWhite,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Daily Goal: 30 min",
+                color = SpotifyGrey,
+                fontSize = 11.sp
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val width = size.width
+                val height = size.height
+                val barSpacing = 12.dp.toPx()
+                val numBars = dailyStats.size
+                val totalSpacing = barSpacing * (numBars - 1)
+                val barWidth = (width - totalSpacing) / numBars
+                
+                // Draw dynamic dotted goal line (30 mins = 1800s)
+                val goalSeconds = 1800f
+                if (maxVal > 0) {
+                    val goalY = height - (goalSeconds / maxVal).coerceIn(0f, 1f) * (height - 24.dp.toPx()) - 12.dp.toPx()
+                    if (goalY in 0f..height) {
+                        drawLine(
+                            color = accentGrey.copy(alpha = 0.3f),
+                            start = androidx.compose.ui.geometry.Offset(0f, goalY),
+                            end = androidx.compose.ui.geometry.Offset(width, goalY),
+                            strokeWidth = 1.dp.toPx(),
+                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                        )
+                    }
+                }
+                
+                dailyStats.forEachIndexed { index, (day, seconds) ->
+                    val x = index * (barWidth + barSpacing)
+                    val labelSpace = 20.dp.toPx()
+                    val chartHeight = height - labelSpace
+                    val barHeight = if (maxVal > 0) {
+                        (seconds.toFloat() / maxVal) * (chartHeight - 12.dp.toPx())
+                    } else {
+                        0f
+                    }.coerceAtLeast(6.dp.toPx())
+                    
+                    val y = chartHeight - barHeight
+                    
+                    val isToday = day == todayName
+                    val brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = if (isToday) {
+                            listOf(accentGreen, accentGreen.copy(alpha = 0.4f))
+                        } else {
+                            listOf(normalGreen, normalGreenDark.copy(alpha = 0.2f))
+                        }
+                    )
+                    
+                    drawRoundRect(
+                        brush = brush,
+                        topLeft = androidx.compose.ui.geometry.Offset(x, y),
+                        size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                    )
+                    
+                    if (isToday) {
+                        drawCircle(
+                            color = SpotifyWhite,
+                            radius = 3.dp.toPx(),
+                            center = androidx.compose.ui.geometry.Offset(x + barWidth / 2, y + 6.dp.toPx())
+                        )
+                    }
+                }
+            }
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                dailyStats.forEach { (day, seconds) ->
+                    val isToday = day == todayName
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = day.take(1),
+                                color = if (isToday) SpotifyGreen else SpotifyGrey,
+                                fontSize = 11.sp,
+                                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
+                            )
+                            Text(
+                                text = "${seconds / 60}m",
+                                color = if (isToday) SpotifyWhite else SpotifyGrey.copy(alpha = 0.7f),
+                                fontSize = 8.sp,
+                                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ListeningPersonaCard(topGenre: String, language: String) {
+    val (title, emoji, desc, color) = when (topGenre) {
+        "Synthwave" -> Quadruple(
+            "The Cyberpunk Voyager",
+            "⚡",
+            "You thrive in neon-soaked soundscapes, late-night driving beats, and retro-futuristic basslines. Your mind runs on 80s nostalgia and digital dreams.",
+            Color(0xFFFF007F)
+        )
+        "Vaporwave" -> Quadruple(
+            "The Retro Dreamer",
+            "🌴",
+            "You are a master of nostalgic aesthetics, slowed beats, and shopping mall elevators. Your listening habits exist in a beautiful, lo-fi purgatory of vintage consumerism.",
+            Color(0xFF9C27B0)
+        )
+        "Lofi" -> Quadruple(
+            "The Chill Scholar",
+            "📚",
+            "You seek peace in ambient crackles, rainfall, and soft jazzy chords. Whether studying or sleeping, you find deep focus in gentle repetitions.",
+            Color(0xFFFF9800)
+        )
+        "Techno" -> Quadruple(
+            "The Rave Architect",
+            "👽",
+            "You love relentless four-on-the-floor rhythms, industrial soundscapes, and hypnotic synth modulation. Your pulse synchronizes perfectly with sub-bass sweeps.",
+            Color(0xFF2196F3)
+        )
+        "Acoustic" -> Quadruple(
+            "The Soul Searcher",
+            "🌲",
+            "You appreciate the raw purity of natural strings, delicate vocals, and unplugged melodies. Your musical heart is warm, authentic, and close to nature.",
+            Color(0xFF8D6E63)
+        )
+        else -> Quadruple(
+            "The Infinite Explorer",
+            "🎒",
+            "You defy simple genre boundaries! Your taste is fluid, curious, and constantly searching for new acoustic horizons and undiscovered rhythms.",
+            SpotifyGreen
+        )
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 20.dp),
+        colors = CardDefaults.cardColors(containerColor = SpotifySurface),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.3f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .background(color.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = emoji, fontSize = 24.sp)
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column {
+                Text(
+                    text = "YOUR LISTENING PERSONA",
+                    color = color,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = title,
+                    color = SpotifyWhite,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = desc,
+                    color = SpotifyGrey,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+            }
+        }
+    }
+}
+
+data class Quadruple<out A, out B, out C, out D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D
+)
+
+@Composable
 fun ListeningInsightsDashboard(
     tracks: List<TrackEntity>,
+    viewModel: MusicViewModel,
     onTrackClick: (TrackEntity) -> Unit,
     onLikeClick: (TrackEntity) -> Unit,
     modifier: Modifier = Modifier
@@ -5319,14 +5614,29 @@ fun ListeningInsightsDashboard(
     val context = LocalContext.current
     val language = LocalAppLanguage.current
     
+    val isPlaying by viewModel.playerManager.isPlaying.collectAsState()
+    
+    var developerTaps by remember { mutableStateOf(0) }
+    var showTuning by remember { mutableStateOf(false) }
+    
     val totalSeconds = remember { mutableStateOf(com.example.data.ListeningStatsManager.getTotalListeningTimeSeconds(context)) }
     val topGenres = remember { mutableStateOf(com.example.data.ListeningStatsManager.getTopGenres(context)) }
     val topArtists = remember { mutableStateOf(com.example.data.ListeningStatsManager.getTopArtists(context)) }
+    val dailyStats = remember { mutableStateOf(com.example.data.ListeningStatsManager.getDailyListeningTime(context)) }
 
-    LaunchedEffect(Unit) {
-        totalSeconds.value = com.example.data.ListeningStatsManager.getTotalListeningTimeSeconds(context)
-        topGenres.value = com.example.data.ListeningStatsManager.getTopGenres(context)
-        topArtists.value = com.example.data.ListeningStatsManager.getTopArtists(context)
+    // Dynamic updates: listen directly to SharedPreferences writes (e.g. from AudioPlayerManager background loop)
+    DisposableEffect(context) {
+        val prefs = context.getSharedPreferences("listening_stats_prefs", android.content.Context.MODE_PRIVATE)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            totalSeconds.value = com.example.data.ListeningStatsManager.getTotalListeningTimeSeconds(context)
+            topGenres.value = com.example.data.ListeningStatsManager.getTopGenres(context)
+            topArtists.value = com.example.data.ListeningStatsManager.getTopArtists(context)
+            dailyStats.value = com.example.data.ListeningStatsManager.getDailyListeningTime(context)
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
     }
 
     Column(
@@ -5339,7 +5649,20 @@ fun ListeningInsightsDashboard(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 20.dp),
+                .padding(bottom = 20.dp)
+                .clickable {
+                    developerTaps++
+                    if (developerTaps >= 5) {
+                        showTuning = !showTuning
+                        developerTaps = 0
+                        triggerHapticFeedback(context, "double_pulse")
+                        android.widget.Toast.makeText(
+                            context,
+                            if (showTuning) "Developer Mode Enabled!" else "Developer Mode Disabled!",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                },
             colors = CardDefaults.cardColors(containerColor = SpotifySurfaceVariant),
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -5347,6 +5670,47 @@ fun ListeningInsightsDashboard(
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Tracking Status Bar
+                if (isPlaying) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .background(SpotifyGreen.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        LiveEqualizerPulse()
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "LIVE TRACKING ACTIVE",
+                            color = SpotifyGreen,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .background(SpotifyGrey.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Box(modifier = Modifier.size(6.dp).background(SpotifyGrey, CircleShape))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "TRACKING IDLE",
+                            color = SpotifyGrey,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
                 Text(
                     text = t("total_listening_time", language),
                     color = SpotifyGrey,
@@ -5362,7 +5726,7 @@ fun ListeningInsightsDashboard(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = t("music_habits_desc", language),
+                    text = t("insights_hero_desc", language),
                     color = SpotifyWhite.copy(alpha = 0.8f),
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
@@ -5370,6 +5734,25 @@ fun ListeningInsightsDashboard(
                 )
             }
         }
+
+        // Weekly Activity graphical chart
+        Text(
+            text = "Listening Activity",
+            color = SpotifyWhite,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        
+        WeeklyActivityChart(
+            dailyStats = dailyStats.value,
+            language = language,
+            modifier = Modifier.padding(bottom = 20.dp)
+        )
+
+        // Listening Persona profile
+        val topGenre = topGenres.value.firstOrNull()?.first ?: ""
+        ListeningPersonaCard(topGenre = topGenre, language = language)
 
         // Top Genres Section
         Text(
@@ -5420,7 +5803,7 @@ fun ListeningInsightsDashboard(
                                     .fillMaxWidth()
                                     .height(8.dp)
                                     .background(SpotifySurfaceVariant, RoundedCornerShape(4.dp))
-                            ) {
+                             ) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth(ratio.coerceAtLeast(0.05f))
@@ -5516,7 +5899,10 @@ fun ListeningInsightsDashboard(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.padding(bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 sortedTracks.forEach { track ->
                     TrackListItem(
                         track = track,
@@ -5525,6 +5911,90 @@ fun ListeningInsightsDashboard(
                         onClick = { onTrackClick(track) },
                         onLikeClick = { onLikeClick(track) }
                     )
+                }
+            }
+        }
+
+        // Simulation Tuning Actions Section (Hidden behind developer tap shortcut)
+        if (showTuning) {
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+            
+            Text(
+                text = "Tuning & Simulation",
+                color = SpotifyWhite,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Text(
+                text = "Use these tools to inject mock statistics and test the responsiveness of the analytics system.",
+                color = SpotifyGrey,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        triggerHapticFeedback(context, "snap")
+                        com.example.data.ListeningStatsManager.simulateListeningSession(context, tracks, 600L) // Add 10 mins
+                        android.widget.Toast.makeText(context, "Simulated 10 minutes of listening across tracks!", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
+                    modifier = Modifier.weight(1.2f),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                ) {
+                    Text(text = "Simulate +10m", color = SpotifyBlack, fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
+                }
+
+                Button(
+                    onClick = {
+                        triggerHapticFeedback(context, "snap")
+                        com.example.data.ListeningStatsManager.loadDemoStats(context)
+                        
+                        // Manually force updates
+                        totalSeconds.value = com.example.data.ListeningStatsManager.getTotalListeningTimeSeconds(context)
+                        topGenres.value = com.example.data.ListeningStatsManager.getTopGenres(context)
+                        topArtists.value = com.example.data.ListeningStatsManager.getTopArtists(context)
+                        dailyStats.value = com.example.data.ListeningStatsManager.getDailyListeningTime(context)
+                        
+                        android.widget.Toast.makeText(context, "Rich demo statistics loaded!", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                ) {
+                    Text(text = "Load Demo", color = SpotifyWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
+                }
+
+                Button(
+                    onClick = {
+                        triggerHapticFeedback(context, "double_pulse")
+                        // Clear stats preferences
+                        val prefs = context.getSharedPreferences("listening_stats_prefs", android.content.Context.MODE_PRIVATE)
+                        prefs.edit().clear().apply()
+                        // Reinitialize to defaults
+                        com.example.data.ListeningStatsManager.initializeIfNeeded(context)
+                        
+                        // Manually force updates in case listener is slow
+                        totalSeconds.value = com.example.data.ListeningStatsManager.getTotalListeningTimeSeconds(context)
+                        topGenres.value = com.example.data.ListeningStatsManager.getTopGenres(context)
+                        topArtists.value = com.example.data.ListeningStatsManager.getTopArtists(context)
+                        dailyStats.value = com.example.data.ListeningStatsManager.getDailyListeningTime(context)
+                        
+                        android.widget.Toast.makeText(context, "Statistics reset to zero!", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F).copy(alpha = 0.8f)),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                ) {
+                    Text(text = "Reset Stats", color = SpotifyWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
                 }
             }
         }
