@@ -105,6 +105,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _lyricsUiState = MutableStateFlow<LyricsUiState>(LyricsUiState.Idle)
     val lyricsUiState: StateFlow<LyricsUiState> = _lyricsUiState.asStateFlow()
 
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private val _scanProgress = MutableStateFlow(0f)
+    val scanProgress: StateFlow<Float> = _scanProgress.asStateFlow()
+
+    private val _scannedCount = MutableStateFlow(0)
+    val scannedCount: StateFlow<Int> = _scannedCount.asStateFlow()
+
     fun loadLyricsForTrack(track: TrackEntity) {
         viewModelScope.launch {
             _lyricsUiState.value = LyricsUiState.Loading
@@ -293,12 +302,32 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun importLocalFolder(treeUri: android.net.Uri) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            _isScanning.value = true
+            _scanProgress.value = 0f
+            _scannedCount.value = 0
+            
             try {
                 val context = getApplication<Application>()
                 val rootFile = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri) ?: return@launch
+                val allAudioFiles = mutableListOf<androidx.documentfile.provider.DocumentFile>()
+                val fileToFolderMap = mutableMapOf<androidx.documentfile.provider.DocumentFile, String>()
+                
+                gatherAudioFiles(rootFile, rootFile.name ?: "Imported Folder", allAudioFiles, fileToFolderMap)
+                
+                val totalCount = allAudioFiles.size
                 val importedTracks = mutableListOf<TrackEntity>()
                 
-                scanDocumentFileForMp3s(context, rootFile, rootFile.name ?: "Imported Folder", importedTracks)
+                if (totalCount > 0) {
+                    allAudioFiles.forEachIndexed { index, file ->
+                        val folderName = fileToFolderMap[file] ?: "Imported Folder"
+                        val track = processMp3DocumentFile(context, file, folderName)
+                        if (track != null) {
+                            importedTracks.add(track)
+                        }
+                        _scannedCount.value = index + 1
+                        _scanProgress.value = (index + 1).toFloat() / totalCount
+                    }
+                }
                 
                 if (importedTracks.isNotEmpty()) {
                     repository.insertTracks(importedTracks)
@@ -308,34 +337,87 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            } finally {
+                _isScanning.value = false
             }
         }
     }
 
-    private suspend fun scanDocumentFileForMp3s(
-        context: android.content.Context,
+    fun rescanLibraryFolders(folderEntries: Set<String>) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            _isScanning.value = true
+            _scanProgress.value = 0f
+            _scannedCount.value = 0
+            
+            try {
+                val context = getApplication<Application>()
+                val allAudioFiles = mutableListOf<androidx.documentfile.provider.DocumentFile>()
+                val fileToFolderMap = mutableMapOf<androidx.documentfile.provider.DocumentFile, String>()
+                
+                folderEntries.forEach { folderEntry ->
+                    try {
+                        val parts = folderEntry.split("|")
+                        val uriStr = parts.getOrNull(0) ?: ""
+                        if (uriStr.isNotEmpty()) {
+                            val uri = android.net.Uri.parse(uriStr)
+                            val rootFile = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, uri)
+                            if (rootFile != null) {
+                                gatherAudioFiles(rootFile, rootFile.name ?: "Imported Folder", allAudioFiles, fileToFolderMap)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                
+                val totalCount = allAudioFiles.size
+                val importedTracks = mutableListOf<TrackEntity>()
+                
+                if (totalCount > 0) {
+                    allAudioFiles.forEachIndexed { index, file ->
+                        val folderName = fileToFolderMap[file] ?: "Imported Folder"
+                        val track = processMp3DocumentFile(context, file, folderName)
+                        if (track != null) {
+                            importedTracks.add(track)
+                        }
+                        _scannedCount.value = index + 1
+                        _scanProgress.value = (index + 1).toFloat() / totalCount
+                    }
+                }
+                
+                if (importedTracks.isNotEmpty()) {
+                    repository.insertTracks(importedTracks)
+                    val updatedTracks = repository.allTracks.first()
+                    playerManager.setQueue(updatedTracks)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isScanning.value = false
+            }
+        }
+    }
+
+    private fun gatherAudioFiles(
         documentFile: androidx.documentfile.provider.DocumentFile,
         currentFolderName: String,
-        outputList: MutableList<TrackEntity>
+        outputList: MutableList<androidx.documentfile.provider.DocumentFile>,
+        fileToFolderMap: MutableMap<androidx.documentfile.provider.DocumentFile, String>
     ) {
         if (documentFile.isDirectory) {
             val files = documentFile.listFiles()
             for (file in files) {
                 if (file.isDirectory) {
                     val subFolder = file.name ?: currentFolderName
-                    scanDocumentFileForMp3s(context, file, subFolder, outputList)
+                    gatherAudioFiles(file, subFolder, outputList, fileToFolderMap)
                 } else if (file.isFile && (file.name?.endsWith(".mp3", ignoreCase = true) == true || file.type?.contains("audio") == true)) {
-                    val track = processMp3DocumentFile(context, file, currentFolderName)
-                    if (track != null) {
-                        outputList.add(track)
-                    }
+                    outputList.add(file)
+                    fileToFolderMap[file] = currentFolderName
                 }
             }
         } else if (documentFile.isFile && (documentFile.name?.endsWith(".mp3", ignoreCase = true) == true || documentFile.type?.contains("audio") == true)) {
-            val track = processMp3DocumentFile(context, documentFile, currentFolderName)
-            if (track != null) {
-                outputList.add(track)
-            }
+            outputList.add(documentFile)
+            fileToFolderMap[documentFile] = currentFolderName
         }
     }
 

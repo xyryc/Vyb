@@ -5,6 +5,8 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    
+    <!-- Background Base: Sleek Premium Dark Gradient -->
     <path
         android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
@@ -14,9 +16,39 @@
                 android:startY="0"
                 android:endX="108"
                 android:endY="108">
-                <item android:color="#121212" android:offset="0.0"/>
-                <item android:color="#1F1F1F" android:offset="0.5"/>
-                <item android:color="#0D2E1A" android:offset="1.0"/>
+                <item android:color="#0E0E0E" android:offset="0.0"/>
+                <item android:color="#1A1A1A" android:offset="0.4"/>
+                <item android:color="#06120A" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Deep Ambient Glow on the bottom-right -->
+    <path
+        android:pathData="M54,54m-54,0a54,54 0,1,1 108,0a54,54 0,1,1 -108,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="85"
+                android:centerY="85"
+                android:gradientRadius="75">
+                <item android:color="#350D7E31" android:offset="0.0"/>
+                <item android:color="#00000000" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Ambient Glow on the top-left -->
+    <path
+        android:pathData="M54,54m-54,0a54,54 0,1,1 108,0a54,54 0,1,1 -108,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="20"
+                android:centerY="20"
+                android:gradientRadius="65">
+                <item android:color="#251ED760" android:offset="0.0"/>
+                <item android:color="#00000000" android:offset="1.0"/>
             </gradient>
         </aapt:attr>
     </path>

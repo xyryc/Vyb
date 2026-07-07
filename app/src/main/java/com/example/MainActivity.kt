@@ -2565,27 +2565,6 @@ fun ExpandedPlayerScreen(
                         )
                     }
                     IconButton(
-                        onClick = {
-                            scope.launch {
-                                android.widget.Toast.makeText(context, t("download_art_searching", language), android.widget.Toast.LENGTH_SHORT).show()
-                                val success = onFetchAlbumArtClick()
-                                if (success) {
-                                    android.widget.Toast.makeText(context, t("download_art_success", language), android.widget.Toast.LENGTH_SHORT).show()
-                                } else {
-                                    android.widget.Toast.makeText(context, t("download_art_fail", language), android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        },
-                        modifier = Modifier.testTag("player_fetch_art_btn")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.CloudDownload,
-                            contentDescription = t("download_art_menu", language),
-                            tint = SpotifyWhite,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(
                         onClick = onEqualizerClick,
                         modifier = Modifier.testTag("player_equalizer_btn")
                     ) {
@@ -2593,17 +2572,6 @@ fun ExpandedPlayerScreen(
                             imageVector = Icons.Filled.Tune,
                             contentDescription = "Equalizer",
                             tint = SpotifyWhite,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(
-                        onClick = onSleepTimerClick,
-                        modifier = Modifier.testTag("player_sleep_timer_btn")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AccessTime,
-                            contentDescription = "Sleep Timer",
-                            tint = if (sleepTimerRemaining > 0) themeAccent.color else SpotifyWhite,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -4677,6 +4645,12 @@ fun SettingsScreen(
             Button(
                 onClick = {
                     triggerHapticFeedback(context, "double_pulse")
+                    try {
+                        context.imageLoader.memoryCache?.clear()
+                        context.imageLoader.diskCache?.clear()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                     android.widget.Toast.makeText(context, t("art_cache_cleared_toast", language), android.widget.Toast.LENGTH_SHORT).show()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = SpotifySurfaceVariant),
@@ -4898,35 +4872,21 @@ fun SettingsScreen(
 
             HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
 
-            // Rescan library with animated simulation!
-            var isScanning by remember { mutableStateOf(false) }
-            var scanProgress by remember { mutableStateOf(0f) }
-            var scannedCount by remember { mutableStateOf(0) }
+            // Rescan library with actual scan progress
+            val isScanning by viewModel.isScanning.collectAsState()
+            val scanProgress by viewModel.scanProgress.collectAsState()
+            val scannedCount by viewModel.scannedCount.collectAsState()
 
-            if (isScanning) {
-                LaunchedEffect(Unit) {
-                    // Start actual scan in background if there are directories
-                    libraryFolders.forEach { folderEntry ->
-                        try {
-                            val parts = folderEntry.split("|")
-                            val uriStr = parts.getOrNull(0) ?: ""
-                            if (uriStr.isNotEmpty()) {
-                                viewModel.importLocalFolder(android.net.Uri.parse(uriStr))
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                    for (i in 1..20) {
-                        delay(100)
-                        scanProgress = i / 20f
-                        scannedCount = (i * 3.4).toInt()
-                    }
-                    isScanning = false
+            var wasScanning by remember { mutableStateOf(false) }
+            LaunchedEffect(isScanning) {
+                if (wasScanning && !isScanning) {
                     triggerHapticFeedback(context, "double_pulse")
                     android.widget.Toast.makeText(context, t("rescan_completed_toast", language), android.widget.Toast.LENGTH_SHORT).show()
                 }
+                wasScanning = isScanning
+            }
 
+            if (isScanning) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -4954,10 +4914,8 @@ fun SettingsScreen(
             } else {
                 Button(
                     onClick = {
-                        isScanning = true
-                        scanProgress = 0f
-                        scannedCount = 0
                         triggerHapticFeedback(context, "snap")
+                        viewModel.rescanLibraryFolders(libraryFolders)
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = currentAccent.color),
                     modifier = Modifier.fillMaxWidth(),
