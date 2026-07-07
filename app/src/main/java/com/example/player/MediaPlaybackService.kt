@@ -29,7 +29,20 @@ class MediaPlaybackService : Service() {
     private var lastTitle: String? = null
     private var lastArtist: String? = null
     private var lastDuration: Long = -1L
+    private var lastIsPlaying: Boolean = false
+    private var lastIsLiked: Boolean = false
+    private var lastPosition: Long = 0L
     private var defaultLargeIcon: Bitmap? = null
+
+    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "pref_lockscreen_widget") {
+            val title = lastTitle
+            val artist = lastArtist
+            if (title != null && artist != null) {
+                showNotification(title, artist, lastIsPlaying, lastArtworkBitmap, lastIsLiked, lastPosition, lastDuration)
+            }
+        }
+    }
 
     companion object {
         const val CHANNEL_ID = "music_player_channel"
@@ -74,6 +87,13 @@ class MediaPlaybackService : Service() {
         createNotificationChannel()
         try {
             defaultLargeIcon = BitmapFactory.decodeResource(resources, android.R.drawable.ic_media_play)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
+            getSharedPreferences("music_player_settings", Context.MODE_PRIVATE)
+                .registerOnSharedPreferenceChangeListener(prefListener)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -244,6 +264,14 @@ class MediaPlaybackService : Service() {
         position: Long,
         duration: Long
     ) {
+        lastTitle = title
+        lastArtist = artist
+        lastIsPlaying = isPlaying
+        lastArtworkBitmap = artwork
+        lastIsLiked = isLiked
+        lastPosition = position
+        lastDuration = duration
+
         val playPauseIntent = Intent(this, MediaPlaybackService::class.java).apply {
             action = if (isPlaying) ACTION_PAUSE else ACTION_PLAY
         }
@@ -305,7 +333,13 @@ class MediaPlaybackService : Service() {
             .setSubText("${formatDuration(position)} / ${formatDuration(duration)}")
             .setLargeIcon(artwork ?: defaultLargeIcon)
             .setContentIntent(openAppPendingIntent)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setVisibility(
+                if (getSharedPreferences("music_player_settings", Context.MODE_PRIVATE).getBoolean("pref_lockscreen_widget", true)) {
+                    Notification.VISIBILITY_PUBLIC
+                } else {
+                    Notification.VISIBILITY_SECRET
+                }
+            )
             .setOngoing(isPlaying)
             .setStyle(
                 Notification.MediaStyle()
@@ -412,6 +446,12 @@ class MediaPlaybackService : Service() {
         super.onDestroy()
         isServiceRunning = false
         isForeground = false
+        try {
+            getSharedPreferences("music_player_settings", Context.MODE_PRIVATE)
+                .unregisterOnSharedPreferenceChangeListener(prefListener)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         try {
             unregisterReceiver(noisyReceiver)
         } catch (e: Exception) {

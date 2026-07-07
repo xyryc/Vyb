@@ -264,6 +264,7 @@ fun MainAppScreen(
     }
     val showCreatePlaylistDialog by viewModel.showCreatePlaylistDialog.collectAsState()
     val showAddToPlaylistDialog by viewModel.showAddToPlaylistDialog.collectAsState()
+    val showSleepTimerDialog by viewModel.showSleepTimerDialog.collectAsState()
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
     val lyricsUiState by viewModel.lyricsUiState.collectAsState()
     val themeAccent by viewModel.currentThemeAccent.collectAsState()
@@ -598,6 +599,8 @@ fun MainAppScreen(
                     onEqualizerClick = { showEqualizer = true },
                     onCollapse = { viewModel.setPlayerExpanded(false) },
                     onFetchAlbumArtClick = { viewModel.manualDownloadAlbumArt(currentTrack!!) },
+                    sleepTimerRemaining = sleepTimerRemaining,
+                    onSleepTimerClick = { viewModel.showSleepTimerDialog(true) },
                     dominantColor = animatedDominantColor,
                     secondaryColor = animatedSecondaryColor,
                     headerModifier = Modifier.draggable(
@@ -649,6 +652,22 @@ fun MainAppScreen(
             EqualizerDialog(
                 viewModel = viewModel,
                 onDismiss = { showEqualizer = false }
+            )
+        }
+
+        if (showSleepTimerDialog) {
+            SleepTimerDialog(
+                onDismiss = { viewModel.showSleepTimerDialog(false) },
+                onSelectTimer = { minutes ->
+                    viewModel.setSleepTimer(minutes)
+                    viewModel.showSleepTimerDialog(false)
+                },
+                onCancelTimer = {
+                    viewModel.cancelSleepTimer()
+                    viewModel.showSleepTimerDialog(false)
+                },
+                currentRemainingMs = sleepTimerRemaining,
+                accentColor = themeAccent.color
             )
         }
     }
@@ -2370,6 +2389,8 @@ fun ExpandedPlayerScreen(
     onEqualizerClick: () -> Unit,
     onCollapse: () -> Unit,
     onFetchAlbumArtClick: suspend () -> Boolean = { false },
+    sleepTimerRemaining: Long = 0L,
+    onSleepTimerClick: () -> Unit = {},
     dominantColor: Color = SpotifySurface,
     secondaryColor: Color = SpotifyBlack,
     headerModifier: Modifier = Modifier,
@@ -2572,6 +2593,17 @@ fun ExpandedPlayerScreen(
                             imageVector = Icons.Filled.Tune,
                             contentDescription = "Equalizer",
                             tint = SpotifyWhite,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onSleepTimerClick,
+                        modifier = Modifier.testTag("player_sleep_timer_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = "Sleep Timer",
+                            tint = if (sleepTimerRemaining > 0) themeAccent.color else SpotifyWhite,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -2905,91 +2937,300 @@ fun SleepTimerDialog(
     onDismiss: () -> Unit,
     onSelectTimer: (Int) -> Unit,
     onCancelTimer: () -> Unit,
-    currentRemainingMs: Long
+    currentRemainingMs: Long,
+    accentColor: Color = SpotifyGreen
 ) {
     val language = LocalAppLanguage.current
+    var customMinutes by remember { mutableStateOf(30f) }
+    var maxTimerDuration by remember { mutableStateOf(currentRemainingMs) }
+    
+    LaunchedEffect(currentRemainingMs) {
+        if (currentRemainingMs > maxTimerDuration) {
+            maxTimerDuration = currentRemainingMs
+        }
+    }
+
+    val progress = remember(currentRemainingMs, maxTimerDuration) {
+        if (maxTimerDuration > 0) currentRemainingMs.toFloat() / maxTimerDuration else 0f
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        containerColor = SpotifySurface,
         title = {
-            Text(
-                text = t("sleep_timer", language),
-                color = SpotifyWhite,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(accentColor.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    text = t("sleep_timer", language),
+                    color = SpotifyWhite,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 20.sp,
+                    letterSpacing = (-0.5).sp
+                )
+            }
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
             ) {
                 if (currentRemainingMs > 0) {
-                    Text(
-                        text = t("current_timer_remaining", language).replace("%s", formatSleepTimer(currentRemainingMs)),
-                        color = SpotifyGreen,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    // Active Timer Mode: Large aesthetic circular countdown
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(140.dp)
+                            .padding(8.dp)
+                    ) {
+                        // Background circle track
+                        CircularProgressIndicator(
+                            progress = 1f,
+                            color = SpotifySurfaceVariant,
+                            strokeWidth = 6.dp,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        // Foreground dynamic indicator
+                        CircularProgressIndicator(
+                            progress = progress,
+                            color = accentColor,
+                            strokeWidth = 6.dp,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        // Inner content
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = formatSleepTimer(currentRemainingMs),
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SpotifyWhite,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            )
+                            Text(
+                                text = t("remaining", language).ifEmpty { "Remaining" },
+                                fontSize = 10.sp,
+                                color = SpotifyGrey,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    // Quick Extensions Chips Row
+                    Column(
+                        horizontalAlignment = Alignment.Start,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = t("extend_timer", language),
+                            fontSize = 11.sp,
+                            color = SpotifyGrey,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            listOf(5, 10, 15).forEach { extMinutes ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(SpotifySurfaceVariant, RoundedCornerShape(10.dp))
+                                        .border(1.dp, SpotifySurfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            val currentRemainingMin = (currentRemainingMs / 60000).toInt()
+                                            onSelectTimer(currentRemainingMin + extMinutes)
+                                        }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "+${extMinutes}m",
+                                        color = SpotifyWhite,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
                 } else {
+                    // Non-Active Setup Mode: Elegant preset list and custom duration
                     Text(
                         text = t("sleep_timer_desc", language),
                         color = SpotifyGrey,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.align(Alignment.Start)
                     )
-                }
 
-                val presets = listOf(5, 15, 30, 45, 60)
+                    // Presets arranged in a modern grid/row
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val row1 = listOf(5, 15, 30)
+                        val row2 = listOf(45, 60)
 
-                presets.forEach { minutes ->
-                    TextButton(
-                        onClick = { onSelectTimer(minutes) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("sleep_timer_preset_$minutes")
+                        // Render row 1
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            row1.forEach { minutes ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(SpotifySurfaceVariant, RoundedCornerShape(12.dp))
+                                        .border(1.dp, SpotifySurfaceVariant, RoundedCornerShape(12.dp))
+                                        .clickable { onSelectTimer(minutes) }
+                                        .padding(vertical = 12.dp)
+                                        .testTag("sleep_timer_preset_$minutes"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "$minutes Min",
+                                        color = SpotifyWhite,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        // Render row 2
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            row2.forEach { minutes ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(SpotifySurfaceVariant, RoundedCornerShape(12.dp))
+                                        .border(1.dp, SpotifySurfaceVariant, RoundedCornerShape(12.dp))
+                                        .clickable { onSelectTimer(minutes) }
+                                        .padding(vertical = 12.dp)
+                                        .testTag("sleep_timer_preset_$minutes"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "$minutes Min",
+                                        color = SpotifyWhite,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+
+                    // Custom Slider Duration
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Start,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.AccessTime,
-                                contentDescription = null,
-                                tint = SpotifyGreen,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "$minutes " + t("minutes", language),
+                                text = t("custom_duration", language),
                                 color = SpotifyWhite,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${customMinutes.toInt()} Min",
+                                color = accentColor,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+
+                        Slider(
+                            value = customMinutes,
+                            onValueChange = { customMinutes = it },
+                            valueRange = 1f..120f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = accentColor,
+                                activeTrackColor = accentColor,
+                                inactiveTrackColor = SpotifySurfaceVariant
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Button(
+                            onClick = { onSelectTimer(customMinutes.toInt()) },
+                            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = t("start_sleep_timer_btn", language),
+                                color = SpotifyBlack,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 14.sp
                             )
                         }
                     }
                 }
             }
         },
-        containerColor = SpotifySurface,
         confirmButton = {
             if (currentRemainingMs > 0) {
                 Button(
                     onClick = onCancelTimer,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                    modifier = Modifier.testTag("sleep_timer_cancel_btn")
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("sleep_timer_cancel_btn"),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(t("cancel_sleep_timer", language), color = SpotifyWhite, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = t("cancel_sleep_timer", language),
+                        color = SpotifyWhite,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 }
             }
         },
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                modifier = Modifier.testTag("sleep_timer_dismiss_btn")
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("sleep_timer_dismiss_btn")
             ) {
-                Text(t("close_btn", language), color = SpotifyWhite)
+                Text(
+                    text = t("close_btn", language),
+                    color = SpotifyGrey,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     )
