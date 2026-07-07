@@ -75,6 +75,7 @@ class AudioPlayerManager(private val context: Context) {
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
     private var focusRequest: android.media.AudioFocusRequest? = null
+    private var audioDeviceCallback: android.media.AudioDeviceCallback? = null
     private var playOnFocusGain = false
     var onToggleLike: ((TrackEntity) -> Unit)? = null
 
@@ -207,13 +208,72 @@ class AudioPlayerManager(private val context: Context) {
         if (Build.VERSION.SDK_INT >= 23) {
             try {
                 val callback = object : android.media.AudioDeviceCallback() {
+                    private var isInitialized = false
+
                     override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) {
                         updateAvailableDevices()
+                        
+                        if (!isInitialized) {
+                            isInitialized = true
+                            return // Ignore initial devices list to prevent immediate auto-play
+                        }
+
+                        if (addedDevices != null) {
+                            var headphoneConnected = false
+                            for (device in addedDevices) {
+                                if (device.isSink) {
+                                    val type = device.type
+                                    if (type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                                        type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                                        type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                                        type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                                        type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+                                    ) {
+                                        headphoneConnected = true
+                                        break
+                                    }
+                                }
+                            }
+
+                            if (headphoneConnected) {
+                                val resumeOnConnect = sharedPrefs.getBoolean("pref_resume_on_connect", false)
+                                if (resumeOnConnect && !_isPlaying.value) {
+                                    togglePlayPause() // This plays/resumes music
+                                }
+                            }
+                        }
                     }
+
                     override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) {
                         updateAvailableDevices()
+
+                        if (removedDevices != null) {
+                            var headphoneRemoved = false
+                            for (device in removedDevices) {
+                                if (device.isSink) {
+                                    val type = device.type
+                                    if (type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                                        type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                                        type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                                        type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                                        type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+                                    ) {
+                                        headphoneRemoved = true
+                                        break
+                                    }
+                                }
+                            }
+
+                            if (headphoneRemoved) {
+                                val pauseOnUnplug = sharedPrefs.getBoolean("pref_pause_on_unplug", true)
+                                if (pauseOnUnplug && _isPlaying.value) {
+                                    togglePlayPause() // This pauses music
+                                }
+                            }
+                        }
                     }
                 }
+                audioDeviceCallback = callback
                 audioManager.registerAudioDeviceCallback(callback, null)
             } catch (e: Exception) {
                 Log.e("AudioPlayerManager", "Failed to register audio device callback", e)
@@ -1042,7 +1102,9 @@ class AudioPlayerManager(private val context: Context) {
             val nativeDevice = devices.find { it.id == deviceWrapper.id }
             if (nativeDevice != null) {
                 try {
-                    mediaPlayer?.setPreferredDevice(nativeDevice)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        mediaPlayer?.setPreferredDevice(nativeDevice)
+                    }
                     Log.d("AudioPlayerManager", "Successfully routed audio to preferred device: ${deviceWrapper.name}")
                 } catch (e: Exception) {
                     Log.e("AudioPlayerManager", "Failed to set preferred device", e)
@@ -1054,6 +1116,14 @@ class AudioPlayerManager(private val context: Context) {
     fun release() {
         cancelActiveCrossfade()
         sharedPrefs.unregisterOnSharedPreferenceChangeListener(prefListener)
+        if (Build.VERSION.SDK_INT >= 23 && audioDeviceCallback != null) {
+            try {
+                audioManager.unregisterAudioDeviceCallback(audioDeviceCallback!!)
+            } catch (e: Exception) {
+                Log.e("AudioPlayerManager", "Failed to unregister audio device callback", e)
+            }
+            audioDeviceCallback = null
+        }
         stopPositionUpdates()
         scope.cancel()
         releaseEqualizer()

@@ -59,7 +59,11 @@ class MediaPlaybackService : Service() {
     private val noisyReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                onPause?.invoke()
+                val prefs = context?.getSharedPreferences("music_player_settings", Context.MODE_PRIVATE)
+                val pauseOnUnplug = prefs?.getBoolean("pref_pause_on_unplug", true) ?: true
+                if (pauseOnUnplug) {
+                    onPause?.invoke()
+                }
             }
         }
     }
