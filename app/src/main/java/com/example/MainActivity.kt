@@ -6252,31 +6252,75 @@ fun triggerHapticFeedback(context: android.content.Context, type: String) {
     if (vibrator == null || !vibrator.hasVibrator()) return
 
     try {
+        val sharedPrefs = context.getSharedPreferences("music_player_settings", android.content.Context.MODE_PRIVATE)
+        val hapticIntensity = sharedPrefs.getString("pref_haptic_intensity", "Crisp") ?: "Crisp"
+
+        if (hapticIntensity == "Off") return
+
+        val ampValue = when (hapticIntensity) {
+            "Soft" -> 60
+            "Strong" -> 255
+            else -> 140 // Crisp
+        }
+
         when (type) {
             "tick" -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val duration = when (hapticIntensity) {
+                        "Soft" -> 8L
+                        "Strong" -> 16L
+                        else -> 12L
+                    }
+                    vibrator.vibrate(VibrationEffect.createOneShot(duration, ampValue))
                 } else {
+                    val duration = when (hapticIntensity) {
+                        "Soft" -> 6L
+                        "Strong" -> 15L
+                        else -> 10L
+                    }
                     @Suppress("DEPRECATION")
-                    vibrator.vibrate(10)
+                    vibrator.vibrate(duration)
                 }
             }
             "snap" -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val duration = when (hapticIntensity) {
+                        "Soft" -> 15L
+                        "Strong" -> 35L
+                        else -> 25L
+                    }
+                    vibrator.vibrate(VibrationEffect.createOneShot(duration, ampValue))
                 } else {
+                    val duration = when (hapticIntensity) {
+                        "Soft" -> 12L
+                        "Strong" -> 40L
+                        else -> 25L
+                    }
                     @Suppress("DEPRECATION")
-                    vibrator.vibrate(25)
+                    vibrator.vibrate(duration)
                 }
             }
             "double_pulse" -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val timings = longArrayOf(0, 30, 80, 40)
-                    val amplitudes = intArrayOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE)
+                    val timings = when (hapticIntensity) {
+                        "Soft" -> longArrayOf(0, 15, 100, 20)
+                        "Strong" -> longArrayOf(0, 45, 60, 55)
+                        else -> longArrayOf(0, 30, 80, 40)
+                    }
+                    val amplitudes = when (hapticIntensity) {
+                        "Soft" -> intArrayOf(0, 50, 0, 50)
+                        "Strong" -> intArrayOf(0, 255, 0, 255)
+                        else -> intArrayOf(0, 140, 0, 140)
+                    }
                     vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
                 } else {
+                    val timings = when (hapticIntensity) {
+                        "Soft" -> longArrayOf(0, 15, 100, 20)
+                        "Strong" -> longArrayOf(0, 45, 60, 55)
+                        else -> longArrayOf(0, 30, 80, 40)
+                    }
                     @Suppress("DEPRECATION")
-                    vibrator.vibrate(longArrayOf(0, 30, 80, 40), -1)
+                    vibrator.vibrate(timings, -1)
                 }
             }
         }
