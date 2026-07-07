@@ -188,11 +188,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             toggleLike(track)
         }
 
-        // Observe track changes to fetch lyrics automatically
+        // Observe track changes to fetch lyrics automatically and check album art
         viewModelScope.launch {
             playerManager.currentTrack.collect { track ->
                 if (track != null) {
                     loadLyricsForTrack(track)
+                    checkAndDownloadAlbumArt(track)
                 } else {
                     _lyricsUiState.value = LyricsUiState.Idle
                 }
@@ -254,6 +255,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
+                var finalCoverUrl = coverUrl
+                if (coverUrl.contains("unsplash.com")) {
+                    try {
+                        val onlineArtUrl = com.example.player.AlbumArtService.fetchAlbumArt(artist, title)
+                        if (onlineArtUrl != null) {
+                            finalCoverUrl = onlineArtUrl
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
                 val localTrack = TrackEntity(
                     id = id,
                     title = title,
@@ -261,7 +274,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     album = album,
                     durationMs = durationMs,
                     audioUrl = destinationFile.absolutePath,
-                    coverUrl = coverUrl,
+                    coverUrl = finalCoverUrl,
                     genre = genre,
                     folderName = "Single Imports",
                     importDate = System.currentTimeMillis()
@@ -385,6 +398,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             
+            var finalCoverUrl = coverUrl
+            if (coverUrl.contains("unsplash.com")) {
+                try {
+                    val onlineArtUrl = com.example.player.AlbumArtService.fetchAlbumArt(artist, title)
+                    if (onlineArtUrl != null) {
+                        finalCoverUrl = onlineArtUrl
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
             return TrackEntity(
                 id = id,
                 title = title,
@@ -392,7 +417,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 album = album,
                 durationMs = durationMs,
                 audioUrl = destinationFile.absolutePath,
-                coverUrl = coverUrl,
+                coverUrl = finalCoverUrl,
                 genre = genre,
                 folderName = folderName,
                 importDate = System.currentTimeMillis()
@@ -736,6 +761,44 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setVirtualizerStrength(strength: Int) {
         playerManager.setVirtualizerStrength(strength)
+    }
+
+    fun checkAndDownloadAlbumArt(track: TrackEntity) {
+        val autoDownload = sharedPrefs.getBoolean("pref_auto_download_album_art", true)
+        if (!autoDownload) return
+
+        val isPlaceholder = track.coverUrl.contains("unsplash.com") || track.coverUrl.isEmpty()
+        if (isPlaceholder) {
+            viewModelScope.launch {
+                try {
+                    val onlineArtUrl = com.example.player.AlbumArtService.fetchAlbumArt(track.artist, track.title)
+                    if (onlineArtUrl != null) {
+                        val updatedTrack = track.copy(coverUrl = onlineArtUrl)
+                        repository.updateTrack(updatedTrack)
+                        playerManager.updateTrackInQueue(updatedTrack)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    suspend fun manualDownloadAlbumArt(track: TrackEntity): Boolean {
+        return try {
+            val onlineArtUrl = com.example.player.AlbumArtService.fetchAlbumArt(track.artist, track.title)
+            if (onlineArtUrl != null) {
+                val updatedTrack = track.copy(coverUrl = onlineArtUrl)
+                repository.updateTrack(updatedTrack)
+                playerManager.updateTrackInQueue(updatedTrack)
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 
     override fun onCleared() {

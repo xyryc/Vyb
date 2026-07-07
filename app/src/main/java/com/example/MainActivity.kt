@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
@@ -87,6 +88,7 @@ import com.example.ui.theme.SpotifySurfaceVariant
 import com.example.ui.theme.SpotifyWhite
 import com.example.viewmodel.MusicViewModel
 import com.example.viewmodel.ScreenState
+import com.example.player.ArtworkProcessor
 import java.util.Calendar
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Canvas
@@ -595,6 +597,7 @@ fun MainAppScreen(
                     onAddToPlaylistClick = { viewModel.showAddToPlaylistDialog(currentTrack) },
                     onEqualizerClick = { showEqualizer = true },
                     onCollapse = { viewModel.setPlayerExpanded(false) },
+                    onFetchAlbumArtClick = { viewModel.manualDownloadAlbumArt(currentTrack!!) },
                     dominantColor = animatedDominantColor,
                     secondaryColor = animatedSecondaryColor,
                     headerModifier = Modifier.draggable(
@@ -658,8 +661,12 @@ fun TrackCoverImage(
     contentDescription: String?,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val processedSource = remember(url) {
+        ArtworkProcessor.getProcessedArtworkSource(context, url)
+    }
     AsyncImage(
-        model = url,
+        model = processedSource,
         contentDescription = contentDescription,
         modifier = modifier,
         contentScale = ContentScale.Crop,
@@ -2362,6 +2369,7 @@ fun ExpandedPlayerScreen(
     onAddToPlaylistClick: () -> Unit,
     onEqualizerClick: () -> Unit,
     onCollapse: () -> Unit,
+    onFetchAlbumArtClick: suspend () -> Boolean = { false },
     dominantColor: Color = SpotifySurface,
     secondaryColor: Color = SpotifyBlack,
     headerModifier: Modifier = Modifier,
@@ -2372,6 +2380,8 @@ fun ExpandedPlayerScreen(
     var showVisualizer by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val language = LocalAppLanguage.current
 
     val configuration = LocalConfiguration.current
     val screenHeightDp = configuration.screenHeightDp
@@ -2530,6 +2540,27 @@ fun ExpandedPlayerScreen(
                             imageVector = if (showVisualizer) Icons.Filled.GraphicEq else Icons.Outlined.GraphicEq,
                             contentDescription = "Toggle Visualizer",
                             tint = if (showVisualizer) SpotifyGreen else SpotifyWhite,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                android.widget.Toast.makeText(context, t("download_art_searching", language), android.widget.Toast.LENGTH_SHORT).show()
+                                val success = onFetchAlbumArtClick()
+                                if (success) {
+                                    android.widget.Toast.makeText(context, t("download_art_success", language), android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    android.widget.Toast.makeText(context, t("download_art_fail", language), android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.testTag("player_fetch_art_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.CloudDownload,
+                            contentDescription = t("download_art_menu", language),
+                            tint = SpotifyWhite,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -3467,6 +3498,9 @@ fun SettingsScreen(
     var downloadWifiOnly by remember {
         mutableStateOf(sharedPrefs.getBoolean("pref_wifi_only", false))
     }
+    var autoDownloadAlbumArt by remember {
+        mutableStateOf(sharedPrefs.getBoolean("pref_auto_download_album_art", true))
+    }
     var highQualityArt by remember {
         mutableStateOf(sharedPrefs.getBoolean("pref_hq_art", true))
     }
@@ -4348,6 +4382,43 @@ fun SettingsScreen(
                     onCheckedChange = {
                         highQualityArt = it
                         sharedPrefs.edit().putBoolean("pref_hq_art", it).apply()
+                        triggerHapticFeedback(context, "snap")
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SpotifyBlack,
+                        checkedTrackColor = currentAccent.color,
+                        uncheckedThumbColor = SpotifyGrey,
+                        uncheckedTrackColor = SpotifySurfaceVariant
+                    )
+                )
+            }
+
+            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+
+            // Auto-Download Album Art
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = t("auto_download_art", language),
+                        color = SpotifyWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = t("auto_download_art_desc", language),
+                        color = SpotifyGrey,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = autoDownloadAlbumArt,
+                    onCheckedChange = {
+                        autoDownloadAlbumArt = it
+                        sharedPrefs.edit().putBoolean("pref_auto_download_album_art", it).apply()
                         triggerHapticFeedback(context, "snap")
                     },
                     colors = SwitchDefaults.colors(

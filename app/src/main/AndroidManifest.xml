@@ -11,6 +11,16 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <attribution
+        android:tag="playback"
+        android:label="@string/attribution_playback" />
+    <attribution
+        android:tag="vibration"
+        android:label="@string/attribution_vibration" />
+    <attribution
+        android:tag="notification"
+        android:label="@string/attribution_notification" />
+
     <application
         android:name=".MusicApplication"
         android:allowBackup="true"

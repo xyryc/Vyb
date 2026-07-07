@@ -363,6 +363,18 @@ class AudioPlayerManager(private val context: Context) {
         updateQueueList()
     }
 
+    fun updateTrackInQueue(updatedTrack: TrackEntity) {
+        originalQueue = originalQueue.map {
+            if (it.id == updatedTrack.id) updatedTrack else it
+        }
+        _playbackQueue.value = _playbackQueue.value.map {
+            if (it.id == updatedTrack.id) updatedTrack else it
+        }
+        if (_currentTrack.value?.id == updatedTrack.id) {
+            _currentTrack.value = updatedTrack
+        }
+    }
+
     private fun updateQueueList() {
         if (_isShuffleEnabled.value) {
             val current = _currentTrack.value

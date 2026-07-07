@@ -340,8 +340,12 @@ fun FluidVisualizer(
                 .testTag("fluid_visualizer_album_art"),
             contentAlignment = Alignment.Center
         ) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val processedSource = remember(track.coverUrl) {
+                ArtworkProcessor.getProcessedArtworkSource(context, track.coverUrl)
+            }
             AsyncImage(
-                model = track.coverUrl,
+                model = processedSource,
                 contentDescription = "Spinning album art",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()

@@ -315,8 +315,9 @@ fun DynamicIslandOverlayContent(
     val SpotifyGreen = currentAccent.color
 
     val imageRequest = remember(currentTrack.coverUrl) {
+        val processed = ArtworkProcessor.getProcessedArtworkSource(context, currentTrack.coverUrl)
         ImageRequest.Builder(context)
-            .data(currentTrack.coverUrl)
+            .data(processed)
             .allowHardware(false)
             .build()
     }
