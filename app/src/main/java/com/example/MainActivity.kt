@@ -5419,8 +5419,6 @@ fun LiveEqualizerPulse(modifier: Modifier = Modifier) {
 }
 
 @Composable
-<<<<<<< Updated upstream
-=======
 fun AnimatedSoundwaveIllustration(modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition(label = "SoundwaveIllustration")
     val phase by infiniteTransition.animateFloat(
@@ -5912,7 +5910,6 @@ fun OnboardingScreen(
 }
 
 @Composable
->>>>>>> Stashed changes
 fun WeeklyActivityChart(
     dailyStats: List<Pair<String, Long>>,
     language: String,
