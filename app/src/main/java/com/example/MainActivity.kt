@@ -80,6 +80,7 @@ import com.example.player.LyricsService
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.ripple.rememberRipple
 import com.example.ui.theme.SpotifyBlack
 import com.example.ui.theme.SpotifyGrey
@@ -220,6 +221,9 @@ fun MainAppScreen(
     var language by remember {
         val saved = sharedPrefs.getString("pref_language", "English 🇮🇪") ?: "English 🇮🇪"
         mutableStateOf(getLanguageWithFlag(saved))
+    }
+    var showOnboarding by remember {
+        mutableStateOf(!sharedPrefs.getBoolean("onboarding_completed", false))
     }
     val currentAppLanguage = AppLanguage.fromString(language)
     val layoutDirection = if (currentAppLanguage == AppLanguage.PALESTINE_ARABIC || 
@@ -516,7 +520,11 @@ fun MainAppScreen(
                         is ScreenState.Settings -> SettingsScreen(
                             viewModel = viewModel,
                             language = language,
-                            onLanguageChange = { language = it }
+                            onLanguageChange = { language = it },
+                            onReplayOnboarding = {
+                                sharedPrefs.edit().putBoolean("onboarding_completed", false).apply()
+                                showOnboarding = true
+                            }
                         )
                     }
                 }
@@ -669,6 +677,16 @@ fun MainAppScreen(
                 },
                 currentRemainingMs = sleepTimerRemaining,
                 accentColor = themeAccent.color
+            )
+        }
+
+        if (showOnboarding) {
+            OnboardingScreen(
+                language = language,
+                onDismiss = {
+                    sharedPrefs.edit().putBoolean("onboarding_completed", true).apply()
+                    showOnboarding = false
+                }
             )
         }
     }
@@ -3662,6 +3680,7 @@ fun SettingsScreen(
     viewModel: MusicViewModel,
     language: String,
     onLanguageChange: (String) -> Unit,
+    onReplayOnboarding: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
@@ -5309,6 +5328,50 @@ fun SettingsScreen(
                 }
             }
         }
+
+        // 9. HELP & APP TOUR CATEGORY
+        SettingsCategoryCard(
+            title = "Help & App Tour",
+            subtitle = "Replay the interactive onboarding tour or view instructions",
+            icon = Icons.Default.Info,
+            iconColor = currentAccent.color,
+            isExpanded = expandedCategory == "help_app_tour",
+            onClick = {
+                expandedCategory = if (expandedCategory == "help_app_tour") null else "help_app_tour"
+                triggerHapticFeedback(context, "snap")
+            }
+        ) {
+            Text(
+                text = "Interactive Onboarding Tour",
+                fontWeight = FontWeight.Bold,
+                color = SpotifyWhite,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+            Text(
+                text = "Review the gorgeous, step-by-step feature walkthrough explaining Lossless Audio, Advanced Music Insights, and Dynamic Floating Overlays.",
+                color = SpotifyGrey,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            Button(
+                onClick = {
+                    triggerHapticFeedback(context, "double_pulse")
+                    onReplayOnboarding()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = currentAccent.color),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Launch App Guide",
+                    color = SpotifyBlack,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+        }
     }
 }
 
@@ -5356,6 +5419,500 @@ fun LiveEqualizerPulse(modifier: Modifier = Modifier) {
 }
 
 @Composable
+<<<<<<< Updated upstream
+=======
+fun AnimatedSoundwaveIllustration(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "SoundwaveIllustration")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase"
+    )
+    val green = SpotifyGreen
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212), RoundedCornerShape(24.dp))
+            .border(1.dp, SpotifyGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(32.dp)) {
+            val width = size.width
+            val height = size.height
+            val barCount = 12
+            val spacing = 8.dp.toPx()
+            val totalSpacing = spacing * (barCount - 1)
+            val barWidth = (width - totalSpacing) / barCount
+            
+            for (i in 0 until barCount) {
+                val angle = phase + (i * 0.5f)
+                val scale = 0.3f + 0.6f * ((sin(angle) + 1f) / 2f)
+                val barHeight = height * scale
+                val x = i * (barWidth + spacing)
+                val y = (height - barHeight) / 2f
+                
+                drawRoundRect(
+                    color = if (i % 2 == 0) green else green.copy(alpha = 0.6f),
+                    topLeft = androidx.compose.ui.geometry.Offset(x, y),
+                    size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AnimatedInsightsIllustration(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "InsightsIllustration")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+    val progressAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 280f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "progressAngle"
+    )
+    val green = SpotifyGreen
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212), RoundedCornerShape(24.dp))
+            .border(1.dp, SpotifyGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(32.dp)) {
+            val width = size.width
+            val height = size.height
+            val center = androidx.compose.ui.geometry.Offset(width / 2f, height * 0.45f)
+            val radius = size.minDimension * 0.28f * pulseScale
+
+            drawCircle(
+                color = SpotifyGrey.copy(alpha = 0.1f),
+                radius = radius,
+                center = center,
+                style = Stroke(width = 12.dp.toPx())
+            )
+
+            drawArc(
+                color = green,
+                startAngle = -90f,
+                sweepAngle = progressAngle,
+                useCenter = false,
+                topLeft = androidx.compose.ui.geometry.Offset(center.x - radius, center.y - radius),
+                size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+                style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            drawCircle(
+                color = green.copy(alpha = 0.15f),
+                radius = radius * 0.7f,
+                center = center
+            )
+
+            val barYStart = height * 0.82f
+            val barHeight = 8.dp.toPx()
+            val totalBars = 3
+            val barSpacing = 12.dp.toPx()
+
+            for (i in 0 until totalBars) {
+                val y = barYStart + i * (barHeight + barSpacing)
+                val percentage = when(i) {
+                    0 -> 0.85f
+                    1 -> 0.65f
+                    else -> 0.4f
+                }
+                
+                drawRoundRect(
+                    color = SpotifyGrey.copy(alpha = 0.15f),
+                    topLeft = androidx.compose.ui.geometry.Offset(width * 0.1f, y),
+                    size = androidx.compose.ui.geometry.Size(width * 0.8f, barHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barHeight / 2f)
+                )
+
+                drawRoundRect(
+                    color = if (i == 0) green else SpotifyGrey.copy(alpha = 0.6f),
+                    topLeft = androidx.compose.ui.geometry.Offset(width * 0.1f, y),
+                    size = androidx.compose.ui.geometry.Size(width * 0.8f * percentage * (pulseScale + 0.05f).coerceAtMost(1f), barHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barHeight / 2f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AnimatedDynamicIslandIllustration(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "DynamicIslandIllustration")
+    val islandWidthScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "islandWidthScale"
+    )
+    val phaseY by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phaseY"
+    )
+    val green = SpotifyGreen
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212), RoundedCornerShape(24.dp))
+            .border(1.dp, SpotifyGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            val width = size.width
+            val height = size.height
+
+            drawRoundRect(
+                color = SpotifyGrey.copy(alpha = 0.1f),
+                topLeft = androidx.compose.ui.geometry.Offset(width * 0.05f, height * 0.05f),
+                size = androidx.compose.ui.geometry.Size(width * 0.9f, height * 0.9f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
+                style = Stroke(width = 2.dp.toPx())
+            )
+
+            val islandW = width * 0.6f * islandWidthScale
+            val islandH = 42.dp.toPx()
+            val islandX = (width - islandW) / 2f
+            val islandY = height * 0.15f
+
+            drawRoundRect(
+                color = Color.Black,
+                topLeft = androidx.compose.ui.geometry.Offset(islandX, islandY),
+                size = androidx.compose.ui.geometry.Size(islandW, islandH),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(islandH / 2f)
+            )
+
+            drawRoundRect(
+                color = green.copy(alpha = 0.3f),
+                topLeft = androidx.compose.ui.geometry.Offset(islandX, islandY),
+                size = androidx.compose.ui.geometry.Size(islandW, islandH),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(islandH / 2f),
+                style = Stroke(width = 1.5.dp.toPx())
+            )
+
+            val artSize = 24.dp.toPx()
+            val artX = islandX + 12.dp.toPx()
+            val artY = islandY + (islandH - artSize) / 2f
+            drawRoundRect(
+                color = green,
+                topLeft = androidx.compose.ui.geometry.Offset(artX, artY),
+                size = androidx.compose.ui.geometry.Size(artSize, artSize),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx())
+            )
+
+            drawCircle(
+                color = Color.Black,
+                radius = 3.dp.toPx(),
+                center = androidx.compose.ui.geometry.Offset(artX + artSize * 0.4f, artY + artSize * 0.6f)
+            )
+
+            val waveW = 32.dp.toPx()
+            val waveX = islandX + islandW - waveW - 14.dp.toPx()
+            val waveYCenter = islandY + islandH / 2f
+            val linesCount = 5
+            val lineSpacing = 3.dp.toPx()
+            val lineWidth = (waveW - (lineSpacing * (linesCount - 1))) / linesCount
+
+            for (i in 0 until linesCount) {
+                val lineH = 6.dp.toPx() + 14.dp.toPx() * ((sin(phaseY + i * 0.8f) + 1f) / 2f)
+                val lx = waveX + i * (lineWidth + lineSpacing)
+                val ly = waveYCenter - lineH / 2f
+                
+                drawRoundRect(
+                    color = green,
+                    topLeft = androidx.compose.ui.geometry.Offset(lx, ly),
+                    size = androidx.compose.ui.geometry.Size(lineWidth, lineH),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(lineWidth / 2f)
+                )
+            }
+
+            val path = androidx.compose.ui.graphics.Path()
+            val startY = height * 0.7f
+            path.moveTo(width * 0.1f, startY)
+            
+            for (xPx in (width * 0.1f).toInt()..(width * 0.9f).toInt()) {
+                val relativeX = (xPx - width * 0.1f) / (width * 0.8f)
+                val sineVal = sin(phaseY + relativeX * 2 * Math.PI) * 16.dp.toPx()
+                path.lineTo(xPx.toFloat(), (startY + sineVal).toFloat())
+            }
+
+            drawPath(
+                path = path,
+                color = green.copy(alpha = 0.15f),
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+    }
+}
+
+@Composable
+fun OnboardingScreen(
+    language: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var currentPage by remember { mutableStateOf(0) }
+    val pageCount = 3
+    val green = SpotifyGreen
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF090909))
+            .testTag("onboarding_container")
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val width = size.width
+            val height = size.height
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(green.copy(alpha = 0.08f), Color.Transparent),
+                    center = androidx.compose.ui.geometry.Offset(width * 0.8f, height * 0.2f),
+                    radius = size.minDimension * 0.8f
+                )
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(green.copy(alpha = 0.05f), Color.Transparent),
+                    center = androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.7f),
+                    radius = size.minDimension * 0.8f
+                )
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp)
+                .navigationBarsPadding()
+                .statusBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (currentPage < pageCount - 1) {
+                    Text(
+                        text = t("onboarding_skip", language),
+                        color = SpotifyGrey,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                triggerHapticFeedback(context, "double_pulse")
+                                onDismiss()
+                            }
+                            .padding(8.dp)
+                            .testTag("onboarding_skip_btn")
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                AnimatedContent(
+                    targetState = currentPage,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            (slideInHorizontally { width -> width } + fadeIn(animationSpec = tween(400))).togetherWith(
+                                slideOutHorizontally { width -> -width } + fadeOut(animationSpec = tween(400))
+                            )
+                        } else {
+                            (slideInHorizontally { width -> -width } + fadeIn(animationSpec = tween(400))).togetherWith(
+                                slideOutHorizontally { width -> width } + fadeOut(animationSpec = tween(400))
+                            )
+                        }
+                    },
+                    label = "OnboardingPageTransition"
+                ) { page ->
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .height(260.dp)
+                                .fillMaxWidth()
+                                .padding(bottom = 24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when (page) {
+                                0 -> AnimatedSoundwaveIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
+                                1 -> AnimatedInsightsIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
+                                2 -> AnimatedDynamicIslandIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
+                            }
+                        }
+
+                        val titleKey = when (page) {
+                            0 -> "onboarding_welcome_title"
+                            1 -> "onboarding_insights_title"
+                            else -> "onboarding_island_title"
+                        }
+                        Text(
+                            text = t(titleKey, language),
+                            color = SpotifyWhite,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                                .testTag("onboarding_title_page_$page")
+                        )
+
+                        val descKey = when (page) {
+                            0 -> "onboarding_welcome_desc"
+                            1 -> "onboarding_insights_desc"
+                            else -> "onboarding_island_desc"
+                        }
+                        Text(
+                            text = t(descKey, language),
+                            color = SpotifyGrey,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Normal,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp)
+                        )
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(pageCount) { index ->
+                        val isSelected = currentPage == index
+                        val widthAnim by animateDpAsState(
+                            targetValue = if (isSelected) 20.dp else 6.dp,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy),
+                            label = "dotWidth"
+                        )
+                        val colorAnim by animateColorAsState(
+                            targetValue = if (isSelected) SpotifyGreen else SpotifyGrey.copy(alpha = 0.4f),
+                            label = "dotColor"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .size(width = widthAnim, height = 6.dp)
+                                .background(colorAnim, CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    triggerHapticFeedback(context, "snap")
+                                    currentPage = index
+                                }
+                                .testTag("onboarding_dot_$index")
+                        )
+                    }
+                }
+
+                val interactionSource = remember { MutableInteractionSource() }
+                val isPressed by interactionSource.collectIsPressedAsState()
+                val scale by animateFloatAsState(
+                    targetValue = if (isPressed) 0.95f else 1.0f,
+                    label = "btnScale"
+                )
+
+                Button(
+                    onClick = {
+                        triggerHapticFeedback(context, "double_pulse")
+                        if (currentPage < pageCount - 1) {
+                            currentPage++
+                        } else {
+                            onDismiss()
+                        }
+                    },
+                    modifier = Modifier
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        }
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .testTag("onboarding_action_btn"),
+                    colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
+                    shape = RoundedCornerShape(28.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
+                    ),
+                    interactionSource = interactionSource
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = if (currentPage < pageCount - 1) t("onboarding_continue", language) else t("onboarding_get_started", language),
+                            color = SpotifyBlack,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = if (currentPage < pageCount - 1) Icons.Default.ArrowForward else Icons.Default.Check,
+                            contentDescription = null,
+                            tint = SpotifyBlack,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+>>>>>>> Stashed changes
 fun WeeklyActivityChart(
     dailyStats: List<Pair<String, Long>>,
     language: String,

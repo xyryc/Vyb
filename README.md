@@ -1,6 +1,6 @@
-# SoundWave - Sleek Android Music Player
+# Vyb - Sleek Android Music Player
 
-SoundWave is a premium, offline-first music streaming and local playback application for Android. Built with a gorgeous, dark-themed user interface inspired by modern streaming apps, SoundWave delivers an immersive audio experience with advanced playlist management, intelligent metadata extraction, local file importing, and a robust offline database.
+Vyb is a premium, offline-first music streaming and local playback application for Android. Built with a gorgeous, dark-themed user interface inspired by modern streaming apps, Vyb delivers an immersive audio experience with advanced playlist management, intelligent metadata extraction, local file importing, and a robust offline database.
 
 ---
 
@@ -51,7 +51,7 @@ Below are the screenshots showcasing the application's beautiful visual design, 
 
 ## 🛠️ Tech Stack & Architecture
 
-SoundWave represents modern Android development practices:
+Vyb represents modern Android development practices:
 
 - **Language**: 100% Kotlin with asynchronous structured concurrency via Coroutines and Flow.
 - **User Interface**: **Jetpack Compose** with Material Design 3, dynamic theming, edge-to-edge window insets, and rigorous touch-target accessibility.
@@ -82,7 +82,7 @@ SoundWave represents modern Android development practices:
 1. Navigate to the **Your Library** or **Home** screen.
 2. Tap the **Import** button (indicated by the upload/publish icon `Publish`).
 3. Select any `.mp3` or compatible audio file from your device's storage.
-4. SoundWave will copy the file, extract its metadata, and automatically insert it into your playable library list!
+4. Vyb will copy the file, extract its metadata, and automatically insert it into your playable library list!
 
 ---
 
@@ -105,7 +105,7 @@ SoundWave represents modern Android development practices:
 
 ## 🧪 Running Automated Tests
 
-To maintain premium quality and prevent regressions, SoundWave includes fully automated JVM tests:
+To maintain premium quality and prevent regressions, Vyb includes fully automated JVM tests:
 
 ```bash
 # Run local JVM unit and integration tests (Robolectric)
@@ -120,4 +120,4 @@ gradle :app:recordRoborazziDebug
 
 ---
 
-*Enjoy a clean, fast, and gorgeous listening experience with **SoundWave**!*
+*Enjoy a clean, fast, and gorgeous listening experience with **Vyb**!*

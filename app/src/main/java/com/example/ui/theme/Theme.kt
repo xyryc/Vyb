@@ -23,7 +23,7 @@ enum class ThemeAccent(val label: String, val color: Color) {
     CLAUDE_APRICOT("Claude Apricot", Color(0xFFE0B8A5))
 }
 
-val LocalAccentColor = compositionLocalOf { Color(0xFF00E5FF) }
+val LocalAccentColor = compositionLocalOf { Color(0xFF1ED760) }
 
 private fun getDarkColorScheme(primaryColor: Color) =
   darkColorScheme(
@@ -43,7 +43,7 @@ private fun getDarkColorScheme(primaryColor: Color) =
 
 @Composable
 fun MyApplicationTheme(
-  primaryColor: Color = Color(0xFF00E5FF),
+  primaryColor: Color = Color(0xFF1ED760),
   content: @Composable () -> Unit,
 ) {
   val colorScheme = getDarkColorScheme(primaryColor)

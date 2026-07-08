@@ -306,10 +306,10 @@ fun DynamicIslandOverlayContent(
 
     val currentAccent = remember {
         try {
-            val savedName = sharedPrefs.getString("theme_accent", com.example.ui.theme.ThemeAccent.COSMIC_BLUE.name)
-            com.example.ui.theme.ThemeAccent.valueOf(savedName ?: com.example.ui.theme.ThemeAccent.COSMIC_BLUE.name)
+            val savedName = sharedPrefs.getString("theme_accent", com.example.ui.theme.ThemeAccent.EMERALD_GLOW.name)
+            com.example.ui.theme.ThemeAccent.valueOf(savedName ?: com.example.ui.theme.ThemeAccent.EMERALD_GLOW.name)
         } catch (e: Exception) {
-            com.example.ui.theme.ThemeAccent.COSMIC_BLUE
+            com.example.ui.theme.ThemeAccent.EMERALD_GLOW
         }
     }
     val SpotifyGreen = currentAccent.color
