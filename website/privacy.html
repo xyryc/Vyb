@@ -56,9 +56,9 @@
           <h1 class="hero-title">Vyb Privacy Policy</h1>
           <p class="hero-subtitle">Your music, your data. Kept completely local, secure, and private on your Android device.</p>
           <div class="meta-info">
-            <span class="last-updated">Last Updated: July 8, 2026</span>
+            <span class="last-updated">Last Updated: July 25, 2026</span>
             <span class="divider">•</span>
-            <span class="publisher">Stonewell Studio</span>
+            <span class="publisher">Stonewell Studio (Package: com.stonewellstudio.vyb)</span>
           </div>
         </div>
 
@@ -132,12 +132,12 @@
           <nav id="table-of-contents" aria-label="Privacy Policy Sections Navigation">
             <ul class="toc-list">
               <li><a href="#introduction" class="toc-link active">1. Introduction</a></li>
-              <li><a href="#permissions" class="toc-link">2. App Permissions</a></li>
+              <li><a href="#permissions" class="toc-link">2. Permissions & Security</a></li>
               <li><a href="#data-collection" class="toc-link">3. Data & Metadata</a></li>
               <li><a href="#security" class="toc-link">4. Local Security</a></li>
-              <li><a href="#third-parties" class="toc-link">5. Third-party Services</a></li>
-              <li><a href="#children" class="toc-link">6. Children's Privacy</a></li>
-              <li><a href="#changes" class="toc-link">7. Policy Changes</a></li>
+              <li><a href="#third-parties" class="toc-link">5. Third-party & HTTPS</a></li>
+              <li><a href="#data-safety" class="toc-link">6. Play Data Safety</a></li>
+              <li><a href="#children" class="toc-link">7. Children's Privacy</a></li>
               <li><a href="#contact" class="toc-link">8. Contact Information</a></li>
             </ul>
           </nav>
@@ -187,16 +187,32 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           </div>
           <div class="section-content">
-            <h2>2. App Permissions</h2>
-            <p>To deliver a premium, seamless audio experience, Vyb requires specific system permissions on your Android device. Below is an exhaustive list of these permissions and the features they support:</p>
+            <h2>2. App Permissions & Security Policy</h2>
+            <p>To deliver a seamless, high-fidelity audio experience, Vyb requires specific system permissions on Android devices (Target SDK 36 / Android 14+ compatible). We use system framework APIs to minimize permission footprint:</p>
             
             <div class="permission-grid">
               <div class="permission-card">
                 <div class="permission-header">
                   <span class="permission-badge">Required</span>
-                  <h3>Storage Access / Media Files</h3>
+                  <h3>Storage Access via SAF</h3>
                 </div>
-                <p>Used to index, parse, and play audio files (such as <code>.mp3</code> files) residing in your device's internal storage or SD card. Vyb clones selected tracks into its secure sandbox storage to maintain continuous offline availability.</p>
+                <p>Vyb uses Android's native <strong>Storage Access Framework (SAF)</strong> document pickers. This allows you to import specific MP3 files or music folders without granting broad device-wide storage access permissions.</p>
+              </div>
+
+              <div class="permission-card">
+                <div class="permission-header">
+                  <span class="permission-badge">Required</span>
+                  <h3>Foreground Media Playback</h3>
+                </div>
+                <p>Declared via <code>FOREGROUND_SERVICE_MEDIA_PLAYBACK</code>. Required by Android 14+ to run the audio playback engine uninterrupted when Vyb is in the background or screen is turned off.</p>
+              </div>
+
+              <div class="permission-card">
+                <div class="permission-header">
+                  <span class="permission-badge">Required</span>
+                  <h3>Notification Permission</h3>
+                </div>
+                <p>Uses <code>POST_NOTIFICATIONS</code> on Android 13+. Allows Vyb to display compact media player controls (Play, Pause, Skip, Like) in your system notification shade and lock screen.</p>
               </div>
 
               <div class="permission-card">
@@ -204,15 +220,7 @@
                   <span class="permission-badge">Optional</span>
                   <h3>System Overlay (Draw Over Apps)</h3>
                 </div>
-                <p>Enables Vyb's signature <strong>Floating Dynamic Island</strong> overlay. This allows you to monitor song playback, view active equalizer waveforms, and trigger controls while interacting with other applications.</p>
-              </div>
-
-              <div class="permission-card">
-                <div class="permission-header">
-                  <span class="permission-badge">Required</span>
-                  <h3>Foreground Service Permission</h3>
-                </div>
-                <p>Required by Android to prevent the operating system from terminating the music engine (ExoPlayer) when Vyb is running in the background or when the screen is turned off.</p>
+                <p>Enables Vyb's optional <strong>Floating Dynamic Island</strong> overlay so you can monitor song playback and audio visualizer waveforms while using other applications.</p>
               </div>
             </div>
           </div>
@@ -256,11 +264,57 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
           </div>
           <div class="section-content">
-            <h2>5. Third-party Services</h2>
-            <p>The core application is completely offline. However, certain dependencies or developer kits may have specific behaviors:</p>
-            
-            <div class="callout callout-warning">
-              <strong>Firebase Integration:</strong> Depending on the build configuration, Vyb may reference Firebase services (such as Firebase AI or App Check) which may log minimal anonymous hardware configurations, network descriptors, and crash logs. No personal audio files or tracking details are shared.
+            <h2>5. Third-party Services & HTTPS Security</h2>
+            <p>Vyb processes audio playback completely offline. To enhance the experience, Vyb optionally fetches high-resolution album artwork and lyrics using secure external public APIs:</p>
+            <ul class="styled-list">
+              <li><strong>iTunes Search API:</strong> Anonymous GET requests over <code>HTTPS</code> to fetch official high-resolution album artwork.</li>
+              <li><strong>LRCLIB API:</strong> Anonymous GET requests over <code>HTTPS</code> to fetch synchronized audio lyrics.</li>
+            </ul>
+            <div class="callout callout-info" style="margin-top: 12px;">
+              <strong>Network Security Guarantee:</strong> Vyb strictly enforces encrypted <code>HTTPS</code> transport across all network calls. Unencrypted cleartext HTTP traffic is completely disabled app-wide in compliance with Google Play Security Policies.
+            </div>
+          </div>
+        </section>
+
+        <section id="data-safety" class="policy-section">
+          <div class="section-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+          </div>
+          <div class="section-content">
+            <h2>6. Google Play Data Safety Declaration</h2>
+            <p>For complete transparency with Google Play Store users, below is our formal Data Safety breakdown:</p>
+            <div class="permission-grid">
+              <div class="permission-card">
+                <div class="permission-header">
+                  <span class="permission-badge">No Data Collected</span>
+                  <h3>User Data Collection</h3>
+                </div>
+                <p>Vyb does <strong>NOT</strong> collect, harvest, store, or transmit any Personally Identifiable Information (PII), audio files, or user contact details to external servers.</p>
+              </div>
+
+              <div class="permission-card">
+                <div class="permission-header">
+                  <span class="permission-badge">No Data Shared</span>
+                  <h3>Third-party Data Sharing</h3>
+                </div>
+                <p>No user data or audio usage analytics are shared with third parties, ad networks, or data brokers.</p>
+              </div>
+
+              <div class="permission-card">
+                <div class="permission-header">
+                  <span class="permission-badge">Encrypted Transport</span>
+                  <h3>Security Practices</h3>
+                </div>
+                <p>All transient metadata queries (artwork/lyrics) use end-to-end <strong>HTTPS encryption</strong>. App storage is fully isolated within Android's app sandbox.</p>
+              </div>
+
+              <div class="permission-card">
+                <div class="permission-header">
+                  <span class="permission-badge">Instant Erasure</span>
+                  <h3>Data Deletion Mechanism</h3>
+                </div>
+                <p>Deleting a track or uninstalling Vyb instantly and permanently erases all associated sandbox databases, artwork caches, and metadata from your device.</p>
+              </div>
             </div>
           </div>
         </section>
