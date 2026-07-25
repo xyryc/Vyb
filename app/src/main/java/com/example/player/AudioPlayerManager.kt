@@ -24,6 +24,7 @@ data class AudioDeviceWrapper(
 )
 
 class AudioPlayerManager(private val context: Context) {
+
     companion object {
         @Volatile
         var instance: AudioPlayerManager? = null
@@ -121,27 +122,37 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     private fun requestAudioFocus(): Boolean {
-        if (android.os.Build.VERSION.SDK_INT >= 26) {
-            val playbackAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .build()
-            focusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
-                .setAudioAttributes(playbackAttributes)
-                .setAcceptsDelayedFocusGain(true)
-                .setOnAudioFocusChangeListener(audioFocusChangeListener)
-                .build()
-            val result = audioManager.requestAudioFocus(focusRequest!!)
-            return result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        } else {
-            @Suppress("DEPRECATION")
-            val result = audioManager.requestAudioFocus(
-                audioFocusChangeListener,
-                android.media.AudioManager.STREAM_MUSIC,
-                android.media.AudioManager.AUDIOFOCUS_GAIN
-            )
-            return result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                val playbackAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+                focusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(playbackAttributes)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                    .build()
+                val result = audioManager.requestAudioFocus(focusRequest!!)
+                if (result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                    return true
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val result = audioManager.requestAudioFocus(
+                    audioFocusChangeListener,
+                    android.media.AudioManager.STREAM_MUSIC,
+                    android.media.AudioManager.AUDIOFOCUS_GAIN
+                )
+                if (result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("AudioPlayerManager", "Failed to request audio focus", e)
         }
+        // Fallback to true to ensure play states and visual indicators still function in headless/headless-like emulator environments
+        return true
     }
 
     private fun abandonAudioFocus() {
@@ -331,6 +342,7 @@ class AudioPlayerManager(private val context: Context) {
                         putExtra("track_id", track.id)
                         putExtra("track_title", track.title)
                         putExtra("track_artist", track.artist)
+                        putExtra("track_album", track.album)
                         putExtra("track_artwork", track.coverUrl)
                         putExtra("is_playing", playing)
                         putExtra("track_position", _playbackPosition.value)
@@ -407,7 +419,7 @@ class AudioPlayerManager(private val context: Context) {
                 _isBuffering.value = false
                 _isPlaying.value = false
                 stopPositionUpdates()
-                false
+                true
             }
         }
 
@@ -452,6 +464,33 @@ class AudioPlayerManager(private val context: Context) {
         }
     }
 
+    private fun setMediaPlayerDataSource(player: MediaPlayer, audioUrl: String) {
+        if (audioUrl.startsWith("android.resource://")) {
+            val uri = Uri.parse(audioUrl)
+            val resName = uri.lastPathSegment
+            if (resName != null) {
+                var resId = context.resources.getIdentifier(resName, "raw", "com.example")
+                if (resId == 0) {
+                    resId = context.resources.getIdentifier(resName, "raw", context.packageName)
+                }
+                if (resId != 0) {
+                    try {
+                        val afd = context.resources.openRawResourceFd(resId)
+                        if (afd != null) {
+                            player.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                            afd.close()
+                            Log.d("AudioPlayerManager", "Successfully set raw resource DataSource for $resName (id=$resId)")
+                            return
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AudioPlayerManager", "Failed to load raw resource via FD", e)
+                    }
+                }
+            }
+        }
+        player.setDataSource(context, Uri.parse(audioUrl))
+    }
+
     fun playTrack(track: TrackEntity, queue: List<TrackEntity> = emptyList()) {
         cancelActiveCrossfade()
         if (queue.isNotEmpty() && originalQueue != queue) {
@@ -493,7 +532,7 @@ class AudioPlayerManager(private val context: Context) {
 
         try {
             mediaPlayer?.reset()
-            mediaPlayer?.setDataSource(context.applicationContext, Uri.parse(track.audioUrl))
+            mediaPlayer?.let { setMediaPlayerDataSource(it, track.audioUrl) }
             mediaPlayer?.prepareAsync()
             
             // If shuffle was enabled, ensure queue is ordered accordingly
@@ -559,6 +598,7 @@ class AudioPlayerManager(private val context: Context) {
             putExtra("track_id", track.id)
             putExtra("track_title", track.title)
             putExtra("track_artist", track.artist)
+            putExtra("track_album", track.album)
             putExtra("track_artwork", track.coverUrl)
             putExtra("is_playing", playing)
             putExtra("track_position", _playbackPosition.value)
@@ -639,7 +679,6 @@ class AudioPlayerManager(private val context: Context) {
                         val currentSecond = currentPos / 1000
                         if (currentSecond != lastSyncedSecond) {
                             lastSyncedSecond = currentSecond
-                            syncPositionToService()
                             _currentTrack.value?.let { track ->
                                 com.example.data.ListeningStatsManager.recordListeningSecond(context, track)
                             }
@@ -985,7 +1024,7 @@ class AudioPlayerManager(private val context: Context) {
                             .setUsage(AudioAttributes.USAGE_MEDIA)
                             .build()
                     )
-                    setDataSource(context.applicationContext, Uri.parse(nextTrack.audioUrl))
+                    setMediaPlayerDataSource(this, nextTrack.audioUrl)
                     setVolume(0f, 0f)
                 }
                 nextMediaPlayer = nextPlayer

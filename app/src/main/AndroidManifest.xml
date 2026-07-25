@@ -9,17 +9,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-    <attribution
-        android:tag="playback"
-        android:label="@string/attribution_playback" />
-    <attribution
-        android:tag="vibration"
-        android:label="@string/attribution_vibration" />
-    <attribution
-        android:tag="notification"
-        android:label="@string/attribution_notification" />
 
     <application
         android:name=".MusicApplication"
@@ -30,8 +19,9 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.MyApplication">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -39,7 +29,6 @@
             android:theme="@style/Theme.MyApplication">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -49,11 +38,6 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
-
-        <service
-            android:name=".player.DynamicIslandOverlayService"
-            android:enabled="true"
-            android:exported="false" />
     </application>
 
 </manifest>

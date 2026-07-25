@@ -28,6 +28,7 @@ class MediaPlaybackService : Service() {
     private var lastArtworkBitmap: Bitmap? = null
     private var lastTitle: String? = null
     private var lastArtist: String? = null
+    private var lastAlbum: String? = null
     private var lastDuration: Long = -1L
     private var lastIsPlaying: Boolean = false
     private var lastIsLiked: Boolean = false
@@ -39,7 +40,7 @@ class MediaPlaybackService : Service() {
             val title = lastTitle
             val artist = lastArtist
             if (title != null && artist != null) {
-                showNotification(title, artist, lastIsPlaying, lastArtworkBitmap, lastIsLiked, lastPosition, lastDuration)
+                showNotification(title, artist, lastAlbum ?: "", lastIsPlaying, lastArtworkBitmap, lastIsLiked, lastPosition, lastDuration)
             }
         }
     }
@@ -152,13 +153,14 @@ class MediaPlaybackService : Service() {
         if (trackId != null) {
             val title = intent?.getStringExtra("track_title") ?: "Unknown Title"
             val artist = intent?.getStringExtra("track_artist") ?: "Unknown Artist"
+            val album = intent?.getStringExtra("track_album") ?: ""
             val artworkUrl = intent?.getStringExtra("track_artwork") ?: ""
             val isPlaying = intent?.getBooleanExtra("is_playing", false) ?: false
             val position = intent?.getLongExtra("track_position", 0L) ?: 0L
             val duration = intent?.getLongExtra("track_duration", 0L) ?: 0L
             val isLiked = intent?.getBooleanExtra("track_liked", false) ?: false
 
-            updateMediaSessionAndNotification(title, artist, artworkUrl, isPlaying, position, duration, isLiked)
+            updateMediaSessionAndNotification(title, artist, album, artworkUrl, isPlaying, position, duration, isLiked)
         }
 
         return START_STICKY
@@ -194,6 +196,7 @@ class MediaPlaybackService : Service() {
     private fun updateMediaSessionAndNotification(
         title: String,
         artist: String,
+        album: String,
         artworkUrl: String,
         isPlaying: Boolean,
         position: Long,
@@ -223,10 +226,10 @@ class MediaPlaybackService : Service() {
                 val bitmap = loadBitmapFromUrl(artworkUrl)
                 lastArtworkBitmap = bitmap
                 updateSessionMetadata(title, artist, bitmap, duration)
-                showNotification(title, artist, isPlaying, bitmap, isLiked, position, duration)
+                showNotification(title, artist, album, isPlaying, bitmap, isLiked, position, duration)
             }
         } else {
-            showNotification(title, artist, isPlaying, lastArtworkBitmap, isLiked, position, duration)
+            showNotification(title, artist, album, isPlaying, lastArtworkBitmap, isLiked, position, duration)
         }
     }
 
@@ -258,6 +261,7 @@ class MediaPlaybackService : Service() {
     private fun showNotification(
         title: String,
         artist: String,
+        album: String,
         isPlaying: Boolean,
         artwork: Bitmap?,
         isLiked: Boolean,
@@ -266,6 +270,7 @@ class MediaPlaybackService : Service() {
     ) {
         lastTitle = title
         lastArtist = artist
+        lastAlbum = album
         lastIsPlaying = isPlaying
         lastArtworkBitmap = artwork
         lastIsLiked = isLiked
@@ -330,7 +335,7 @@ class MediaPlaybackService : Service() {
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(title)
             .setContentText(artist)
-            .setSubText("${formatDuration(position)} / ${formatDuration(duration)}")
+            .setSubText(album.ifEmpty { artist })
             .setLargeIcon(artwork ?: defaultLargeIcon)
             .setContentIntent(openAppPendingIntent)
             .setVisibility(

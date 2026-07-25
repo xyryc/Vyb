@@ -11,6 +11,10 @@ class TrackRepository(private val trackDao: TrackDao) {
         trackDao.insertTracks(tracks)
     }
 
+    suspend fun deleteDemoTracks() {
+        trackDao.deleteDemoTracks()
+    }
+
     suspend fun updateTrack(track: TrackEntity) {
         trackDao.updateTrack(track)
     }

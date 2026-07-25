@@ -231,58 +231,14 @@ object LyricsService {
      * Fetch lyrics for the specified track from lrclib.net (API-key-free)
      */
     suspend fun fetchLyrics(track: TrackEntity): LyricsUiState = withContext(Dispatchers.IO) {
-        try {
-            val durationSec = track.durationMs / 1000
-
-            // 1. Try exact matches first
-            val exactCandidates = getExactMatchCandidates(track.artist, track.title)
-            Log.d(TAG, "Generated exact match candidates: $exactCandidates")
-
-            for (candidate in exactCandidates) {
-                val artistEncoded = URLEncoder.encode(candidate.artist, "UTF-8")
-                val titleEncoded = URLEncoder.encode(candidate.title, "UTF-8")
-
-                // Try with duration if candidate matches original track and duration is valid (>0)
-                if (durationSec > 0 && candidate.artist.equals(track.artist, ignoreCase = true) && candidate.title.equals(track.title, ignoreCase = true)) {
-                    val getUrlWithDuration = "https://lrclib.net/api/get?artist_name=$artistEncoded&track_name=$titleEncoded&duration=$durationSec"
-                    Log.d(TAG, "Trying exact get with duration: $getUrlWithDuration")
-                    val result = executeGetRequest(getUrlWithDuration)
-                    if (result != null) return@withContext result
-                }
-
-                // Try without duration
-                val getUrlNoDuration = "https://lrclib.net/api/get?artist_name=$artistEncoded&track_name=$titleEncoded"
-                Log.d(TAG, "Trying exact get without duration: $getUrlNoDuration")
-                val result = executeGetRequest(getUrlNoDuration)
-                if (result != null) return@withContext result
-            }
-
-            // 2. Try search fallbacks
-            val searchQueries = getSearchQueries(track.artist, track.title)
-            Log.d(TAG, "Generated search query fallbacks: $searchQueries")
-
-            // Limit search queries to top 4 to prevent network spam
-            for (query in searchQueries.take(4)) {
-                val queryEncoded = URLEncoder.encode(query, "UTF-8")
-                val searchUrl = "https://lrclib.net/api/search?q=$queryEncoded"
-                Log.d(TAG, "Trying search query: $searchUrl")
-
-                val result = executeSearchRequest(searchUrl)
-                if (result != null) return@withContext result
-            }
-
-            return@withContext LyricsUiState.Error("No lyrics found for this track.")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching lyrics", e)
-            return@withContext LyricsUiState.Error("Failed to fetch lyrics: ${e.localizedMessage ?: "Unknown network error"}")
-        }
+        return@withContext LyricsUiState.Error("Lyrics are unavailable.")
     }
 
     private fun executeGetRequest(url: String): LyricsUiState.Success? {
         try {
             val request = Request.Builder()
                 .url(url)
-                .header("User-Agent", "SpotifyDynamicIsland/1.0 (Android; Open Source Lyrics Feature)")
+                .header("User-Agent", "VybMusicPlayer/1.0 (Android; Open Source Lyrics Feature)")
                 .build()
 
             client.newCall(request).execute().use { response ->
@@ -303,7 +259,7 @@ object LyricsService {
         try {
             val request = Request.Builder()
                 .url(url)
-                .header("User-Agent", "SpotifyDynamicIsland/1.0 (Android; Open Source Lyrics Feature)")
+                .header("User-Agent", "VybMusicPlayer/1.0 (Android; Open Source Lyrics Feature)")
                 .build()
 
             client.newCall(request).execute().use { response ->

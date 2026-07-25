@@ -14,8 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 enum class ThemeAccent(val label: String, val color: Color) {
-    SUNSET_AMBER("Sunset Amber", Color(0xFFFF9100)),
     EMERALD_GLOW("Emerald Glow", Color(0xFF1ED760)),
+    SUNSET_AMBER("Sunset Amber", Color(0xFFFF9100)),
     COSMIC_BLUE("Cosmic Blue", Color(0xFF00E5FF)),
     NEON_PURPLE("Neon Purple", Color(0xFFD500F9)),
     CYBERPUNK_CORAL("Cyberpunk Coral", Color(0xFFFF2A7A)),

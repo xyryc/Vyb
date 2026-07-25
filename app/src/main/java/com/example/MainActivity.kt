@@ -164,26 +164,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun stopDynamicIsland() {
-        try {
-            stopService(Intent(this, com.example.player.DynamicIslandOverlayService::class.java))
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        val player = com.example.player.AudioPlayerManager.instance
-        if (player != null && player.isPlaying.value && Settings.canDrawOverlays(this)) {
-            val intent = Intent(this, com.example.player.DynamicIslandOverlayService::class.java).apply {
-                action = com.example.player.DynamicIslandOverlayService.ACTION_SHOW
-            }
-            try {
-                startService(intent)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
     }
 }
 
@@ -476,7 +460,8 @@ fun MainAppScreen(
                             onPlaylistClick = { viewModel.navigateTo(ScreenState.PlaylistDetail(it)) },
                             currentTrack = currentTrack,
                             isPlaying = isPlaying,
-                            onLikeClick = { viewModel.toggleLike(it) }
+                            onLikeClick = { viewModel.toggleLike(it) },
+                            onImportClick = { filePickerLauncher.launch("audio/*") }
                         )
 
                         is ScreenState.Search -> SearchScreen(
@@ -719,7 +704,8 @@ fun HomeScreen(
     onPlaylistClick: (PlaylistEntity) -> Unit,
     currentTrack: TrackEntity?,
     isPlaying: Boolean,
-    onLikeClick: (TrackEntity) -> Unit
+    onLikeClick: (TrackEntity) -> Unit,
+    onImportClick: (() -> Unit)? = null
 ) {
     var hour by remember { mutableStateOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
 
@@ -770,8 +756,66 @@ fun HomeScreen(
             }
         }
 
-        item {
-            DynamicIslandPermissionBanner()
+        if (tracks.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    colors = CardDefaults.cardColors(containerColor = SpotifySurface),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.LibraryMusic,
+                            contentDescription = null,
+                            tint = SpotifyGreen,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No Songs Found",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SpotifyWhite
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Import local MP3 files or folders to get started.",
+                            fontSize = 14.sp,
+                            color = SpotifyGrey,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        if (onImportClick != null) {
+                            Button(
+                                onClick = onImportClick,
+                                colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
+                                shape = RoundedCornerShape(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Publish,
+                                    contentDescription = null,
+                                    tint = SpotifyBlack,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Import Music",
+                                    color = SpotifyBlack,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Quick Grid recommendations (like Spotify's top grid)
@@ -813,52 +857,54 @@ fun HomeScreen(
         }
 
         // Made For You: AI Smart Mixes
-        item {
-            Column(modifier = Modifier.padding(bottom = 24.dp)) {
-                Text(
-                    text = t("made_for_you", language),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = SpotifyWhite,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-                
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    getSmartMixes().forEach { mix ->
-                        SmartMixCard(
-                            playlist = mix,
-                            language = language,
-                            onClick = { onPlaylistClick(mix) }
-                        )
+        if (tracks.isNotEmpty()) {
+            item {
+                Column(modifier = Modifier.padding(bottom = 24.dp)) {
+                    Text(
+                        text = t("made_for_you", language),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SpotifyWhite,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        getSmartMixes().forEach { mix ->
+                            SmartMixCard(
+                                playlist = mix,
+                                language = language,
+                                onClick = { onPlaylistClick(mix) }
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        // Featured Songs list
-        item {
-            Text(
-                text = t("more_what_like", language),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = SpotifyWhite,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
+            // Featured Songs list
+            item {
+                Text(
+                    text = t("more_what_like", language),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SpotifyWhite,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
 
-        items(tracks) { track ->
-            TrackListItem(
-                track = track,
-                isCurrent = currentTrack?.id == track.id,
-                isPlaying = isPlaying && currentTrack?.id == track.id,
-                onClick = { onTrackClick(track) },
-                onLikeClick = { onLikeClick(track) }
-            )
+            items(tracks) { track ->
+                TrackListItem(
+                    track = track,
+                    isCurrent = currentTrack?.id == track.id,
+                    isPlaying = isPlaying && currentTrack?.id == track.id,
+                    onClick = { onTrackClick(track) },
+                    onLikeClick = { onLikeClick(track) }
+                )
+            }
         }
     }
 }
@@ -2559,22 +2605,7 @@ fun ExpandedPlayerScreen(
                 ) {
                     IconButton(
                         onClick = { 
-                            showLyrics = !showLyrics
-                            if (showLyrics) showVisualizer = false
-                        },
-                        modifier = Modifier.testTag("player_lyrics_toggle_btn")
-                    ) {
-                        Icon(
-                            imageVector = if (showLyrics) Icons.Filled.Lyrics else Icons.Outlined.Lyrics,
-                            contentDescription = "Toggle Lyrics",
-                            tint = if (showLyrics) themeAccent.color else SpotifyWhite,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(
-                        onClick = { 
                             showVisualizer = !showVisualizer 
-                            if (showVisualizer) showLyrics = false
                         },
                         modifier = Modifier.testTag("player_visualizer_toggle_btn")
                     ) {
@@ -2631,7 +2662,6 @@ fun ExpandedPlayerScreen(
                             .size(coverSize)
                             .clip(RoundedCornerShape(8.dp))
                             .shadow(8.dp)
-                            .clickable { showLyrics = true }
                             .testTag("player_album_art_container")
                     ) {
                         TrackCoverImage(
@@ -3879,138 +3909,6 @@ fun SettingsScreen(
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                             )
                         }
-                    }
-                }
-            }
-
-            HorizontalDivider(color = SpotifySurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
-
-            // Floating Dynamic Island Overlay Mode
-            Text(
-                text = t("floating_island_title", language),
-                fontWeight = FontWeight.Bold,
-                color = SpotifyWhite,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
-            Text(
-                text = t("floating_island_desc", language),
-                color = SpotifyGrey,
-                fontSize = 11.sp,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            val modes = listOf(
-                Triple("COMPACT", t("compact_pill", language), t("compact_pill_desc", language)),
-                Triple("EXPANDED", t("expanded_card", language), t("expanded_card_desc", language)),
-                Triple("AUTO", t("auto_expanding", language), t("auto_expanding_desc", language))
-            )
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-            ) {
-                modes.forEach { (modeKey, modeTitle, modeDesc) ->
-                    val isSelected = islandMode == modeKey
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                if (isSelected) SpotifySurfaceVariant else SpotifyBlack.copy(alpha = 0.3f),
-                                RoundedCornerShape(12.dp)
-                            )
-                            .border(
-                                width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) currentAccent.color else SpotifySurfaceVariant,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .clickable {
-                                islandMode = modeKey
-                                sharedPrefs.edit().putString("island_mode", modeKey).apply()
-                                triggerHapticFeedback(context, "snap")
-                            }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = isSelected,
-                            onClick = {
-                                islandMode = modeKey
-                                sharedPrefs.edit().putString("island_mode", modeKey).apply()
-                                triggerHapticFeedback(context, "snap")
-                            },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = currentAccent.color,
-                                unselectedColor = SpotifyGrey
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = modeTitle,
-                                color = SpotifyWhite,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = modeDesc,
-                                color = SpotifyGrey,
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            // System Permission Box for Overlay
-            val hasOverlayPermission = Settings.canDrawOverlays(context)
-            if (!hasOverlayPermission) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFF9800).copy(alpha = 0.15f)),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .clickable {
-                                val intent = Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    android.net.Uri.parse("package:${context.packageName}")
-                                )
-                                context.startActivity(intent)
-                            }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Warning,
-                            contentDescription = "Permission Required",
-                            tint = Color(0xFFFF9800),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = t("sys_overlay_perm_title", language),
-                                color = Color(0xFFFF9800),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = t("sys_overlay_perm_desc", language),
-                                color = SpotifyGrey,
-                                fontSize = 11.sp
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Filled.ChevronRight,
-                            contentDescription = null,
-                            tint = Color(0xFFFF9800),
-                            modifier = Modifier.size(16.dp)
-                        )
                     }
                 }
             }

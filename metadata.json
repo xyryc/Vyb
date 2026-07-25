@@ -1,6 +1,6 @@
 {
   "name": "Vyb",
-  "description": "A modern Spotify-like music player with rich layouts, background playback simulation, offline favorites, and a beautiful sleek dark theme.",
+  "description": "A modern local music player with rich layouts, background playback, offline favorites, equalizer, lyrics, and a beautiful sleek dark theme.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

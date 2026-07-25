@@ -26,6 +26,9 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE isLiked = 1")
     fun getLikedTracks(): Flow<List<TrackEntity>>
 
+    @Query("DELETE FROM tracks WHERE id LIKE 'song_%' OR audioUrl LIKE 'android.resource://%'")
+    suspend fun deleteDemoTracks()
+
     // Playlists
     @Query("SELECT * FROM playlists ORDER BY createdAt DESC")
     fun getAllPlaylists(): Flow<List<PlaylistEntity>>
