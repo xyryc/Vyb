@@ -5,7 +5,6 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
-  initDynamicIsland();
   initTableOfContents();
   initFAQs();
   initSearch();
@@ -52,98 +51,7 @@ function initTheme() {
 }
 
 /* ==========================================================================
-   2. Interactive Dynamic Island Widget
-   ========================================================================== */
-function initDynamicIsland() {
-  const island = document.getElementById('dynamic-island');
-  const playPauseBtn = document.getElementById('widget-play-pause');
-  const playIcon = playPauseBtn.querySelector('.play-icon');
-  const pauseIcon = playPauseBtn.querySelector('.pause-icon');
-  const waveform = island.querySelector('.waveform');
-  const progressBarFill = island.querySelector('.progress-bar-fill');
-  const progressTimeCurrent = island.querySelector('.progress-time.current');
-
-  let isPlaying = true; // Starts playing by default in the visualizer
-  let progressSeconds = 45; // Starts at 0:45
-  const totalSeconds = 135; // 2:15 total duration
-  let progressInterval = null;
-
-  // Toggle expand / collapse on click (only if clicking the island container itself, not inner controls)
-  island.addEventListener('click', (e) => {
-    // If user clicked a button or interactive child inside the expanded view, don't collapse
-    if (e.target.closest('.player-controls') || e.target.closest('.playback-progress-container')) {
-      return;
-    }
-    
-    const isExpanded = island.classList.contains('expanded');
-    if (isExpanded) {
-      island.classList.remove('expanded');
-      island.classList.add('compact');
-      island.setAttribute('aria-expanded', 'false');
-    } else {
-      island.classList.remove('compact');
-      island.classList.add('expanded');
-      island.setAttribute('aria-expanded', 'true');
-    }
-  });
-
-  // Support accessibility keypress (Enter/Space) to expand
-  island.addEventListener('keydown', (e) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      island.click();
-    }
-  });
-
-  // Play / Pause Simulation
-  playPauseBtn.addEventListener('click', (e) => {
-    e.stopPropagation(); // Prevent island from collapsing
-    togglePlayback();
-  });
-
-  function togglePlayback() {
-    isPlaying = !isPlaying;
-    if (isPlaying) {
-      playIcon.classList.add('hidden');
-      pauseIcon.classList.remove('hidden');
-      waveform.classList.remove('paused');
-      startProgressTimer();
-    } else {
-      playIcon.classList.remove('hidden');
-      pauseIcon.classList.add('hidden');
-      waveform.classList.add('paused');
-      clearInterval(progressInterval);
-    }
-  }
-
-  // Progress Bar Slider Tick
-  function startProgressTimer() {
-    clearInterval(progressInterval);
-    progressInterval = setInterval(() => {
-      progressSeconds++;
-      if (progressSeconds > totalSeconds) {
-        progressSeconds = 0; // Loop playback
-      }
-      
-      // Update UI
-      const percent = (progressSeconds / totalSeconds) * 100;
-      progressBarFill.style.width = `${percent}%`;
-      progressTimeCurrent.textContent = formatTime(progressSeconds);
-    }, 1000);
-  }
-
-  function formatTime(secs) {
-    const minutes = Math.floor(secs / 60);
-    const seconds = secs % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  }
-
-  // Initialize progress bar moving state
-  startProgressTimer();
-}
-
-/* ==========================================================================
-   3. Table of Contents & Scroll Spy
+   2. Table of Contents & Scroll Spy
    ========================================================================== */
 function initTableOfContents() {
   const sections = document.querySelectorAll('.policy-section');

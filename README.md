@@ -17,7 +17,7 @@ Below are the screenshots showcasing the application's beautiful visual design, 
 
 ## ✨ Features
 
-- 🎧 **Sleek, High-Contrast UI**: Beautiful Spotify-inspired Material 3 dark mode featuring vibrant dynamic color accents (Spotify Green) and smooth motion transitions.
+- 🎧 **Sleek, High-Contrast UI**: Beautiful modern Material 3 dark mode featuring vibrant dynamic color accents (Vyb Green) and smooth motion transitions.
 - 🌈 **Dynamic Brand Accents**: Personalize the entire app theme with gorgeous custom accents—choose between *Sunset Amber*, *Emerald Glow*, *Cosmic Blue*, *Neon Purple*, *Cyberpunk Coral*, *Claude Clay*, and *Claude Apricot*.
 - 🏝️ **Custom Floating Dynamic Island**: A system-level heads-up overlay that displays track information and playback controls on top of other applications.
   - **Behavior Modes**: Switch between *Compact Pill* (small, unobtrusive), *Expanded Card* (always showing full control details), and *Auto-expanding* (expands on long-press).
@@ -89,14 +89,14 @@ Vyb represents modern Android development practices:
 ## 📂 Project Structure
 
 ```text
-/app/src/main/java/com/example/
+/app/src/main/java/com/stonewellstudio/vyb/
 ├── MainActivity.kt          # Main UI entry point, Scaffold, and Screen compositions
 ├── data/
-│   ├── MusicDatabase.kt     # Room SQLite Database initialization
+│   ├── AppDatabase.kt       # Room SQLite Database initialization
 │   ├── TrackDao.kt          # Data Access Object for local track indexing
 │   └── TrackEntity.kt       # Local Database Track entity definition
 ├── player/
-│   └── AudioPlayerManager.kt# ExoPlayer lifecycle & hardware playback coordinator
+│   └── AudioPlayerManager.kt# Audio playback & hardware playback coordinator
 └── viewmodel/
     └── MusicViewModel.kt    # State machine coordinating UI flows, queries, and file importing
 ```
