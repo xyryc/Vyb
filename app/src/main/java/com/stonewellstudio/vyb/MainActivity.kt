@@ -26,6 +26,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.outlined.List
@@ -87,6 +89,7 @@ import com.stonewellstudio.vyb.ui.theme.VybGrey
 import com.stonewellstudio.vyb.ui.theme.VybSurface
 import com.stonewellstudio.vyb.ui.theme.VybSurfaceVariant
 import com.stonewellstudio.vyb.ui.theme.VybWhite
+import com.stonewellstudio.vyb.ui.EditTrackTagsDialog
 import com.stonewellstudio.vyb.viewmodel.MusicViewModel
 import com.stonewellstudio.vyb.viewmodel.ScreenState
 import com.stonewellstudio.vyb.player.ArtworkProcessor
@@ -229,6 +232,7 @@ fun MainAppScreen(
     }
     val showCreatePlaylistDialog by viewModel.showCreatePlaylistDialog.collectAsState()
     val showAddToPlaylistDialog by viewModel.showAddToPlaylistDialog.collectAsState()
+    val trackToEditTags by viewModel.trackToEditTags.collectAsState()
     val showSleepTimerDialog by viewModel.showSleepTimerDialog.collectAsState()
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsState()
     val lyricsUiState by viewModel.lyricsUiState.collectAsState()
@@ -244,6 +248,15 @@ fun MainAppScreen(
     var screenHeightPx by remember { mutableStateOf(displayMetrics.heightPixels.toFloat()) }
 
     var dragOffset by remember { mutableStateOf<Float?>(null) }
+    var miniPlayerDismissOffset by remember { mutableStateOf(0f) }
+    val animatedMiniPlayerDismissOffset by animateFloatAsState(
+        targetValue = miniPlayerDismissOffset,
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioNoBouncy
+        ),
+        label = "MiniPlayerDismissOffset"
+    )
     val targetOffset = if (isPlayerExpanded) 0f else screenHeightPx
     val animatedOffset by animateFloatAsState(
         targetValue = dragOffset ?: targetOffset,
@@ -263,7 +276,9 @@ fun MainAppScreen(
     val isBuffering by viewModel.playerManager.isBuffering.collectAsState()
     val isShuffleEnabled by viewModel.playerManager.isShuffleEnabled.collectAsState()
     val isRepeatEnabled by viewModel.playerManager.isRepeatEnabled.collectAsState()
+    val playbackQueue by viewModel.playbackQueue.collectAsState()
     var showEqualizer by remember { mutableStateOf(false) }
+    var showQueueScreen by remember { mutableStateOf(false) }
 
     // Dynamic Gradient Background states
     var dominantColor by remember { mutableStateOf(VybBlack) }
@@ -438,6 +453,7 @@ fun MainAppScreen(
                             currentTrack = currentTrack,
                             isPlaying = isPlaying,
                             onLikeClick = { viewModel.toggleLike(it) },
+                            onEditTagsClick = { viewModel.showEditTagsDialog(it) },
                             onImportClick = { filePickerLauncher.launch("audio/*") }
                         )
 
@@ -447,7 +463,8 @@ fun MainAppScreen(
                             searchResults = searchResults,
                             onTrackClick = { track -> viewModel.playTrack(track, searchResults) },
                             currentTrack = currentTrack,
-                            onLikeClick = { viewModel.toggleLike(it) }
+                            onLikeClick = { viewModel.toggleLike(it) },
+                            onEditTagsClick = { viewModel.showEditTagsDialog(it) }
                         )
 
                         is ScreenState.Library -> LibraryScreen(
@@ -461,7 +478,8 @@ fun MainAppScreen(
                             onImportFileClick = { filePickerLauncher.launch("audio/*") },
                             onImportFolderClick = { directoryPickerLauncher.launch(null) },
                             currentTrack = currentTrack,
-                            onLikeClick = { viewModel.toggleLike(it) }
+                            onLikeClick = { viewModel.toggleLike(it) },
+                            onEditTagsClick = { viewModel.showEditTagsDialog(it) }
                         )
 
                         is ScreenState.PlaylistDetail -> PlaylistDetailScreen(
@@ -476,6 +494,7 @@ fun MainAppScreen(
                             onRemoveTrack = { track -> viewModel.removeTrackFromPlaylist(screen.playlist.id, track.id) },
                             onAddTrack = { track -> viewModel.addTrackToPlaylist(screen.playlist.id, track.id) },
                             onLikeClick = { viewModel.toggleLike(it) },
+                            onEditTagsClick = { viewModel.showEditTagsDialog(it) },
                             onBackClick = { viewModel.navigateTo(ScreenState.Library) }
                         )
 
@@ -498,26 +517,46 @@ fun MainAppScreen(
                             .align(Alignment.BottomCenter)
                             .padding(bottom = 8.dp, start = 8.dp, end = 8.dp)
                             .graphicsLayer {
-                                alpha = miniPlayerAlpha
-                                translationY = (1f - miniPlayerAlpha) * 100f
+                                alpha = (miniPlayerAlpha * (1f - (animatedMiniPlayerDismissOffset / 180f).coerceIn(0f, 1f))).coerceIn(0f, 1f)
+                                translationY = (1f - miniPlayerAlpha) * 100f + animatedMiniPlayerDismissOffset
                             }
                             .draggable(
                                 state = rememberDraggableState { delta ->
-                                    val current = dragOffset ?: screenHeightPx
-                                    dragOffset = (current + delta).coerceIn(0f, screenHeightPx)
+                                    if (delta < 0) {
+                                        // Dragging upwards: expands the player
+                                        if (miniPlayerDismissOffset > 0f) {
+                                            miniPlayerDismissOffset = (miniPlayerDismissOffset + delta).coerceAtLeast(0f)
+                                        } else {
+                                            val current = dragOffset ?: screenHeightPx
+                                            dragOffset = (current + delta).coerceIn(0f, screenHeightPx)
+                                        }
+                                    } else {
+                                        // Dragging downwards: user wants to dismiss / close the mini player
+                                        miniPlayerDismissOffset = (miniPlayerDismissOffset + delta).coerceAtLeast(0f)
+                                    }
                                 },
                                 orientation = Orientation.Vertical,
                                 onDragStarted = {
+                                    miniPlayerDismissOffset = 0f
                                     dragOffset = screenHeightPx
                                 },
                                 onDragStopped = { velocity ->
-                                    val current = dragOffset ?: screenHeightPx
-                                    if (current < screenHeightPx * 0.8f || velocity < -500f) {
-                                        viewModel.setPlayerExpanded(true)
+                                    if (miniPlayerDismissOffset > 100f || velocity > 500f) {
+                                        // Swiped down sufficiently: close playback completely
+                                        triggerHapticFeedback(context, "snap")
+                                        miniPlayerDismissOffset = 0f
+                                        dragOffset = null
+                                        viewModel.closePlayback()
                                     } else {
-                                        viewModel.setPlayerExpanded(false)
+                                        val current = dragOffset ?: screenHeightPx
+                                        if (current < screenHeightPx * 0.8f || velocity < -500f) {
+                                            viewModel.setPlayerExpanded(true)
+                                        } else {
+                                            viewModel.setPlayerExpanded(false)
+                                        }
+                                        miniPlayerDismissOffset = 0f
+                                        dragOffset = null
                                     }
-                                    dragOffset = null
                                 }
                             )
                     ) {
@@ -533,6 +572,7 @@ fun MainAppScreen(
                             onSkipPreviousClick = { viewModel.playerManager.skipToPrevious() },
                             onSeek = { viewModel.playerManager.seekTo(it) },
                             onClick = { if (miniPlayerAlpha > 0.8f) viewModel.setPlayerExpanded(true) },
+                            onCloseClick = { viewModel.closePlayback() },
                             controlsOpacity = controlsOpacity
                         )
                     }
@@ -566,12 +606,15 @@ fun MainAppScreen(
                     onShuffleClick = { viewModel.playerManager.toggleShuffle() },
                     onRepeatClick = { viewModel.playerManager.toggleRepeat() },
                     onLikeClick = { viewModel.toggleLike(currentTrack!!) },
+                    onEditTagsClick = { viewModel.showEditTagsDialog(currentTrack) },
                     onAddToPlaylistClick = { viewModel.showAddToPlaylistDialog(currentTrack) },
                     onEqualizerClick = { showEqualizer = true },
                     onCollapse = { viewModel.setPlayerExpanded(false) },
                     onFetchAlbumArtClick = { viewModel.manualDownloadAlbumArt(currentTrack!!) },
                     sleepTimerRemaining = sleepTimerRemaining,
                     onSleepTimerClick = { viewModel.showSleepTimerDialog(true) },
+                    onQueueClick = { showQueueScreen = true },
+                    queueCount = playbackQueue.size,
                     dominantColor = animatedDominantColor,
                     secondaryColor = animatedSecondaryColor,
                     headerModifier = Modifier.draggable(
@@ -600,6 +643,45 @@ fun MainAppScreen(
             }
         }
 
+        // Queue Screen Modal with smooth slide animation
+        AnimatedVisibility(
+            visible = showQueueScreen,
+            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(250)) + fadeOut(animationSpec = tween(250))
+        ) {
+            androidx.activity.compose.BackHandler(enabled = showQueueScreen) {
+                showQueueScreen = false
+            }
+            com.stonewellstudio.vyb.ui.QueueModalScreen(
+                currentTrack = currentTrack,
+                queue = playbackQueue,
+                isPlaying = isPlaying,
+                playbackPosition = playbackPosition,
+                playbackDuration = playbackDuration,
+                language = language,
+                onClose = { showQueueScreen = false },
+                onTrackClick = { track ->
+                    viewModel.playTrackFromQueue(track)
+                },
+                onReorderQueue = { from, to ->
+                    viewModel.reorderQueue(from, to)
+                },
+                onRemoveFromQueue = { index ->
+                    viewModel.removeFromQueue(index)
+                },
+                onClearQueue = {
+                    viewModel.clearQueue()
+                },
+                onPlayNext = { track ->
+                    viewModel.playNext(track)
+                },
+                onLikeClick = { track ->
+                    viewModel.toggleLike(track)
+                },
+                accentColor = themeAccent.color
+            )
+        }
+
         // Dialogs
         if (showCreatePlaylistDialog) {
             CreatePlaylistDialog(
@@ -615,6 +697,28 @@ fun MainAppScreen(
                 onDismiss = { viewModel.showAddToPlaylistDialog(null) },
                 onPlaylistSelected = { playlistId ->
                     viewModel.addTrackToPlaylist(playlistId, showAddToPlaylistDialog!!.id)
+                }
+            )
+        }
+
+        if (trackToEditTags != null) {
+            EditTrackTagsDialog(
+                track = trackToEditTags!!,
+                language = language,
+                accentColor = themeAccent.color,
+                onDismiss = { viewModel.showEditTagsDialog(null) },
+                onSave = { title, artist, album, genre, newCoverUri ->
+                    viewModel.updateTrackMetadata(
+                        track = trackToEditTags!!,
+                        newTitle = title,
+                        newArtist = artist,
+                        newAlbum = album,
+                        newGenre = genre,
+                        newCoverUri = newCoverUri
+                    )
+                },
+                onFetchOnlineArt = { artist, title ->
+                    com.stonewellstudio.vyb.player.AlbumArtService.fetchAlbumArt(artist, title)
                 }
             )
         }
@@ -682,6 +786,7 @@ fun HomeScreen(
     currentTrack: TrackEntity?,
     isPlaying: Boolean,
     onLikeClick: (TrackEntity) -> Unit,
+    onEditTagsClick: ((TrackEntity) -> Unit)? = null,
     onImportClick: (() -> Unit)? = null
 ) {
     var hour by remember { mutableStateOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
@@ -879,7 +984,8 @@ fun HomeScreen(
                     isCurrent = currentTrack?.id == track.id,
                     isPlaying = isPlaying && currentTrack?.id == track.id,
                     onClick = { onTrackClick(track) },
-                    onLikeClick = { onLikeClick(track) }
+                    onLikeClick = { onLikeClick(track) },
+                    onEditTagsClick = if (onEditTagsClick != null) { { onEditTagsClick(track) } } else null
                 )
             }
         }
@@ -1081,8 +1187,11 @@ fun TrackListItem(
     isPlaying: Boolean,
     onClick: () -> Unit,
     onLikeClick: () -> Unit,
+    onEditTagsClick: (() -> Unit)? = null,
     trailingContent: @Composable (() -> Unit)? = null
 ) {
+    var showTrackMenu by remember { mutableStateOf(false) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -1143,16 +1252,60 @@ fun TrackListItem(
         if (trailingContent != null) {
             trailingContent()
         } else {
-            IconButton(
-                onClick = onLikeClick,
-                modifier = Modifier.testTag("like_btn_${track.id}")
-            ) {
-                Icon(
-                    imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Like",
-                    tint = if (track.isLiked) VybGreen else VybGrey,
-                    modifier = Modifier.size(22.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onLikeClick,
+                    modifier = Modifier.testTag("like_btn_${track.id}")
+                ) {
+                    Icon(
+                        imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = "Like",
+                        tint = if (track.isLiked) VybGreen else VybGrey,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                if (onEditTagsClick != null) {
+                    Box {
+                        IconButton(
+                            onClick = { showTrackMenu = true },
+                            modifier = Modifier.testTag("track_more_btn_${track.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "More Options",
+                                tint = VybGrey,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showTrackMenu,
+                            onDismissRequest = { showTrackMenu = false },
+                            modifier = Modifier.background(VybSurface)
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Edit,
+                                            contentDescription = null,
+                                            tint = VybGreen,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(t("edit_track", LocalAppLanguage.current), color = VybWhite)
+                                    }
+                                },
+                                onClick = {
+                                    showTrackMenu = false
+                                    onEditTagsClick()
+                                },
+                                modifier = Modifier.testTag("menu_edit_tags_${track.id}")
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -1165,7 +1318,8 @@ fun SearchScreen(
     searchResults: List<TrackEntity>,
     onTrackClick: (TrackEntity) -> Unit,
     currentTrack: TrackEntity?,
-    onLikeClick: (TrackEntity) -> Unit
+    onLikeClick: (TrackEntity) -> Unit,
+    onEditTagsClick: ((TrackEntity) -> Unit)? = null
 ) {
     val language = LocalAppLanguage.current
     val categories = listOf(
@@ -1274,7 +1428,8 @@ fun SearchScreen(
                             isCurrent = currentTrack?.id == track.id,
                             isPlaying = false,
                             onClick = { onTrackClick(track) },
-                            onLikeClick = { onLikeClick(track) }
+                            onLikeClick = { onLikeClick(track) },
+                            onEditTagsClick = if (onEditTagsClick != null) { { onEditTagsClick(track) } } else null
                         )
                     }
                 }
@@ -1331,7 +1486,8 @@ fun LibraryScreen(
     onImportFileClick: () -> Unit,
     onImportFolderClick: () -> Unit,
     currentTrack: TrackEntity?,
-    onLikeClick: (TrackEntity) -> Unit
+    onLikeClick: (TrackEntity) -> Unit,
+    onEditTagsClick: ((TrackEntity) -> Unit)? = null
 ) {
     val language = LocalAppLanguage.current
     var selectedTab by remember { mutableStateOf(0) } // 0 = Playlists, 1 = Liked Songs, 2 = Insights, 3 = Smart Folders
@@ -1593,7 +1749,8 @@ fun LibraryScreen(
                                 isCurrent = currentTrack?.id == track.id,
                                 isPlaying = false,
                                 onClick = { onTrackClick(track) },
-                                onLikeClick = { onLikeClick(track) }
+                                onLikeClick = { onLikeClick(track) },
+                                onEditTagsClick = if (onEditTagsClick != null) { { onEditTagsClick(track) } } else null
                             )
                         }
                     }
@@ -1612,7 +1769,8 @@ fun LibraryScreen(
                     tracks = allTracks,
                     onTrackClick = onTrackClick,
                     onLikeClick = onLikeClick,
-                    currentTrack = currentTrack
+                    currentTrack = currentTrack,
+                    onEditTagsClick = onEditTagsClick
                 )
             }
         }
@@ -1624,7 +1782,8 @@ fun SmartFoldersSection(
     tracks: List<TrackEntity>,
     onTrackClick: (TrackEntity) -> Unit,
     onLikeClick: (TrackEntity) -> Unit,
-    currentTrack: TrackEntity?
+    currentTrack: TrackEntity?,
+    onEditTagsClick: ((TrackEntity) -> Unit)? = null
 ) {
     val language = LocalAppLanguage.current
     // Grouping modes: 0 = Physical Folders, 1 = Artist, 2 = Genre, 3 = Import Date
@@ -1872,7 +2031,8 @@ fun SmartFoldersSection(
                         isCurrent = currentTrack?.id == track.id,
                         isPlaying = false,
                         onClick = { onTrackClick(track) },
-                        onLikeClick = { onLikeClick(track) }
+                        onLikeClick = { onLikeClick(track) },
+                        onEditTagsClick = if (onEditTagsClick != null) { { onEditTagsClick(track) } } else null
                     )
                 }
             }
@@ -1983,6 +2143,7 @@ fun PlaylistDetailScreen(
     onRemoveTrack: (TrackEntity) -> Unit,
     onAddTrack: (TrackEntity) -> Unit,
     onLikeClick: (TrackEntity) -> Unit,
+    onEditTagsClick: ((TrackEntity) -> Unit)? = null,
     onBackClick: () -> Unit
 ) {
     var showAddSongsSheet by remember { mutableStateOf(false) }
@@ -2159,13 +2320,29 @@ fun PlaylistDetailScreen(
                         isPlaying = isPlaying && currentTrack?.id == track.id,
                         onClick = { onTrackClick(track) },
                         onLikeClick = { onLikeClick(track) },
+                        onEditTagsClick = if (onEditTagsClick != null) { { onEditTagsClick(track) } } else null,
                         trailingContent = if (playlist.id >= 0) {
                             {
-                                IconButton(
-                                    onClick = { onRemoveTrack(track) },
-                                    modifier = Modifier.testTag("remove_track_${track.id}")
-                                ) {
-                                    Icon(Icons.Filled.RemoveCircleOutline, contentDescription = "Remove", tint = VybGrey)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        onClick = { onRemoveTrack(track) },
+                                        modifier = Modifier.testTag("remove_track_${track.id}")
+                                    ) {
+                                        Icon(Icons.Filled.RemoveCircleOutline, contentDescription = "Remove", tint = VybGrey)
+                                    }
+                                    if (onEditTagsClick != null) {
+                                        IconButton(
+                                            onClick = { onEditTagsClick(track) },
+                                            modifier = Modifier.testTag("track_more_btn_${track.id}")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Edit,
+                                                contentDescription = "Edit Track",
+                                                tint = VybGrey,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         } else null
@@ -2258,6 +2435,7 @@ fun MiniPlayer(
     onSkipPreviousClick: () -> Unit,
     onSeek: (Long) -> Unit,
     onClick: () -> Unit,
+    onCloseClick: (() -> Unit)? = null,
     controlsOpacity: Float = 0.95f
 ) {
     val context = LocalContext.current
@@ -2373,6 +2551,23 @@ fun MiniPlayer(
                         modifier = Modifier.size(24.dp)
                     )
                 }
+
+                if (onCloseClick != null) {
+                    IconButton(
+                        onClick = {
+                            triggerHapticFeedback(context, "snap")
+                            onCloseClick()
+                        },
+                        modifier = Modifier.testTag("mini_close_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Close Player",
+                            tint = VybGrey,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
 
             // Interactive Progress Slider for the music
@@ -2429,12 +2624,15 @@ fun ExpandedPlayerScreen(
     onShuffleClick: () -> Unit,
     onRepeatClick: () -> Unit,
     onLikeClick: () -> Unit,
+    onEditTagsClick: () -> Unit = {},
     onAddToPlaylistClick: () -> Unit,
     onEqualizerClick: () -> Unit,
     onCollapse: () -> Unit,
     onFetchAlbumArtClick: suspend () -> Boolean = { false },
     sleepTimerRemaining: Long = 0L,
     onSleepTimerClick: () -> Unit = {},
+    onQueueClick: () -> Unit = {},
+    queueCount: Int = 0,
     dominantColor: Color = VybSurface,
     secondaryColor: Color = VybBlack,
     headerModifier: Modifier = Modifier,
@@ -2581,6 +2779,42 @@ fun ExpandedPlayerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
+                        onClick = onQueueClick,
+                        modifier = Modifier.testTag("player_queue_top_btn")
+                    ) {
+                        val upcomingCount = (queueCount - 1).coerceAtLeast(0)
+                        if (upcomingCount > 0) {
+                            BadgedBox(
+                                badge = {
+                                    Badge(
+                                        containerColor = themeAccent.color,
+                                        contentColor = VybBlack
+                                    ) {
+                                        Text(
+                                            text = if (upcomingCount > 99) "99+" else "$upcomingCount",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.QueueMusic,
+                                    contentDescription = "Queue",
+                                    tint = VybWhite,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.QueueMusic,
+                                contentDescription = "Queue",
+                                tint = VybWhite,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    IconButton(
                         onClick = { 
                             showVisualizer = !showVisualizer 
                         },
@@ -2677,19 +2911,33 @@ fun ExpandedPlayerScreen(
                     )
                 }
 
-                IconButton(
-                    onClick = {
-                        triggerHapticFeedback(context, if (track.isLiked) "snap" else "double_pulse")
-                        onLikeClick()
-                    },
-                    modifier = Modifier.testTag("player_like_btn")
-                ) {
-                    Icon(
-                        imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Like",
-                        tint = if (track.isLiked) VybGreen else VybWhite,
-                        modifier = Modifier.size(28.dp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            triggerHapticFeedback(context, if (track.isLiked) "snap" else "double_pulse")
+                            onLikeClick()
+                        },
+                        modifier = Modifier.testTag("player_like_btn")
+                    ) {
+                        Icon(
+                            imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Like",
+                            tint = if (track.isLiked) VybGreen else VybWhite,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onEditTagsClick,
+                        modifier = Modifier.testTag("player_edit_tags_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Edit Track Tags",
+                            tint = VybWhite.copy(alpha = 0.85f),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
 
@@ -2810,6 +3058,90 @@ fun ExpandedPlayerScreen(
                         tint = if (isRepeatEnabled) VybGreen else VybWhite,
                         modifier = Modifier.size(24.dp)
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Bottom utility actions: Sleep timer, Lyrics, Add to Playlist, Queue
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                IconButton(
+                    onClick = onSleepTimerClick,
+                    modifier = Modifier.testTag("player_sleep_timer_btn")
+                ) {
+                    Icon(
+                        imageVector = if (sleepTimerRemaining > 0) Icons.Filled.Bedtime else Icons.Outlined.Bedtime,
+                        contentDescription = "Sleep Timer",
+                        tint = if (sleepTimerRemaining > 0) themeAccent.color else VybGrey,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { showLyrics = !showLyrics },
+                    modifier = Modifier.testTag("player_lyrics_btn")
+                ) {
+                    Icon(
+                        imageVector = if (showLyrics) Icons.Filled.Lyrics else Icons.Outlined.Lyrics,
+                        contentDescription = "Lyrics",
+                        tint = if (showLyrics) themeAccent.color else VybGrey,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onAddToPlaylistClick,
+                    modifier = Modifier.testTag("player_add_to_playlist_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlaylistAdd,
+                        contentDescription = "Add to Playlist",
+                        tint = VybGrey,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onQueueClick,
+                    modifier = Modifier.testTag("player_bottom_queue_btn")
+                ) {
+                    val upcomingCount = (queueCount - 1).coerceAtLeast(0)
+                    if (upcomingCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = themeAccent.color,
+                                    contentColor = VybBlack
+                                ) {
+                                    Text(
+                                        text = if (upcomingCount > 99) "99+" else "$upcomingCount",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.QueueMusic,
+                                contentDescription = "Queue",
+                                tint = VybGrey,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.QueueMusic,
+                            contentDescription = "Queue",
+                            tint = VybGrey,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 
@@ -3393,10 +3725,7 @@ fun SettingsScreen(
         context.getSharedPreferences("music_player_settings", android.content.Context.MODE_PRIVATE)
     }
 
-    var islandMode by remember {
-        mutableStateOf(sharedPrefs.getString("island_mode", "AUTO") ?: "AUTO")
-    }
-    val islandOpacity by viewModel.controlsOpacity.collectAsState()
+    val controlsOpacity by viewModel.controlsOpacity.collectAsState()
 
     var customMinutes by remember { mutableStateOf(30f) }
     var maxTimerDuration by remember { mutableStateOf(0L) }
@@ -3995,7 +4324,7 @@ fun SettingsScreen(
                         )
                     }
                     Text(
-                        text = "${(islandOpacity * 100).toInt()}%",
+                        text = "${(controlsOpacity * 100).toInt()}%",
                         color = currentAccent.color,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -4003,7 +4332,7 @@ fun SettingsScreen(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Slider(
-                    value = islandOpacity,
+                    value = controlsOpacity,
                     onValueChange = {
                         viewModel.setControlsOpacity(it)
                     },
@@ -5126,14 +5455,265 @@ fun AnimatedInsightsIllustration(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun AnimatedEqualizerIllustration(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "EqualizerIllustration")
+    
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212), RoundedCornerShape(24.dp))
+            .border(1.dp, VybGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier.padding(24.dp).fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            for (i in 0 until 5) {
+                val phase by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = (2 * Math.PI).toFloat(),
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1500 + i * 200, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "phase$i"
+                )
+                
+                val heightPercent = 0.4f + 0.5f * ((sin(phase + i) + 1f) / 2f)
+                
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(horizontal = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(4.dp)
+                            .background(VybGrey.copy(alpha = 0.2f), RoundedCornerShape(2.dp))
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight(heightPercent)
+                            .width(24.dp)
+                            .background(VybGreen, RoundedCornerShape(12.dp))
+                            .align(Alignment.BottomCenter)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AnimatedPersonalizeIllustration(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "PersonalizeIllustration")
+    val phase1 by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase1"
+    )
+    
+    val green = VybGreen
+    val white = VybWhite
+    val grey = VybGrey
+    
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212), RoundedCornerShape(24.dp))
+            .border(1.dp, VybGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(32.dp)) {
+            val width = size.width
+            val height = size.height
+            val center = androidx.compose.ui.geometry.Offset(width / 2f, height / 2f)
+            
+            val colors = listOf(green, Color(0xFFFF9800), Color(0xFFE91E63), Color(0xFF00BCD4))
+            val radius = size.minDimension * 0.18f
+            
+            for (i in 0 until 4) {
+                val angle = (phase1 + (i * 90f)) * (Math.PI / 180f)
+                val orbitRadius = size.minDimension * 0.35f
+                
+                val x = center.x + orbitRadius * cos(angle).toFloat()
+                val y = center.y + orbitRadius * sin(angle).toFloat()
+                
+                drawCircle(
+                    color = colors[i],
+                    radius = radius + (sin(angle * 4).toFloat() * radius * 0.15f),
+                    center = androidx.compose.ui.geometry.Offset(x, y)
+                )
+            }
+            
+            drawCircle(
+                color = white,
+                radius = radius * 0.8f,
+                center = center
+            )
+            
+            drawArc(
+                color = green,
+                startAngle = phase1 * 2f,
+                sweepAngle = 180f,
+                useCenter = false,
+                topLeft = androidx.compose.ui.geometry.Offset(center.x - radius * 1.5f, center.y - radius * 1.5f),
+                size = androidx.compose.ui.geometry.Size(radius * 3f, radius * 3f),
+                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+    }
+}
+
+@Composable
+fun AnimatedSmartFoldersIllustration(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "SmartFoldersIllustration")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "phase"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212), RoundedCornerShape(24.dp))
+            .border(1.dp, VybGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            val sizes = listOf(0.9f, 0.7f, 0.5f)
+            val colors = listOf(VybGreen, Color(0xFF03A9F4), Color(0xFFE91E63))
+            
+            for (i in 0 until 3) {
+                val currentWidth = sizes[i] + (if (i == 1) phase * 0.1f else -phase * 0.1f)
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(currentWidth),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(colors[i].copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Folder,
+                            contentDescription = null,
+                            tint = colors[i],
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .height(12.dp)
+                            .weight(1f)
+                            .background(VybGrey.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AnimatedSleepTimerIllustration(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "SleepTimerIllustration")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212), RoundedCornerShape(24.dp))
+            .border(1.dp, VybGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        val green = VybGreen
+        val surfaceVariant = VybSurfaceVariant
+        val white = VybWhite
+        
+        Canvas(modifier = Modifier.size(120.dp)) {
+            val center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension / 2f
+            
+            drawCircle(
+                color = surfaceVariant,
+                radius = radius,
+                center = center
+            )
+            
+            drawArc(
+                color = green,
+                startAngle = -90f,
+                sweepAngle = 270f + (sin(rotation * PI / 180f).toFloat() * 20f),
+                useCenter = false,
+                topLeft = androidx.compose.ui.geometry.Offset(center.x - radius, center.y - radius),
+                size = size,
+                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+            )
+            
+            // Draw crescent moon
+            val moonCenter = androidx.compose.ui.geometry.Offset(center.x, center.y)
+            drawCircle(
+                color = white,
+                radius = radius * 0.4f,
+                center = moonCenter
+            )
+            drawCircle(
+                color = surfaceVariant,
+                radius = radius * 0.35f,
+                center = androidx.compose.ui.geometry.Offset(moonCenter.x + radius * 0.15f, moonCenter.y - radius * 0.15f)
+            )
+        }
+    }
+}
+
+@Composable
 fun OnboardingScreen(
     language: String,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var currentPage by remember { mutableStateOf(0) }
-    val pageCount = 2
+    val pageCount = 6
+    val pagerState = rememberPagerState(pageCount = { pageCount })
+    val coroutineScope = rememberCoroutineScope()
     val green = VybGreen
+
+    var lastHapticPage by remember { mutableStateOf(0) }
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != lastHapticPage) {
+            lastHapticPage = pagerState.currentPage
+            triggerHapticFeedback(context, "snap")
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -5176,7 +5756,7 @@ fun OnboardingScreen(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (currentPage < pageCount - 1) {
+                if (pagerState.currentPage < pageCount - 1) {
                     Text(
                         text = t("onboarding_skip", language),
                         color = VybGrey,
@@ -5196,73 +5776,72 @@ fun OnboardingScreen(
                 }
             }
 
-            Box(
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                AnimatedContent(
-                    targetState = currentPage,
-                    transitionSpec = {
-                        if (targetState > initialState) {
-                            (slideInHorizontally { width -> width } + fadeIn(animationSpec = tween(400))).togetherWith(
-                                slideOutHorizontally { width -> -width } + fadeOut(animationSpec = tween(400))
-                            )
-                        } else {
-                            (slideInHorizontally { width -> -width } + fadeIn(animationSpec = tween(400))).togetherWith(
-                                slideOutHorizontally { width -> width } + fadeOut(animationSpec = tween(400))
-                            )
-                        }
-                    },
-                    label = "OnboardingPageTransition"
-                ) { page ->
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                    .fillMaxWidth()
+                    .testTag("onboarding_pager")
+            ) { page ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .height(260.dp)
+                            .fillMaxWidth()
+                            .padding(bottom = 24.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .height(260.dp)
-                                .fillMaxWidth()
-                                .padding(bottom = 24.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            when (page) {
-                                0 -> AnimatedSoundwaveIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
-                                else -> AnimatedInsightsIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
-                            }
+                        when (page) {
+                            0 -> AnimatedSoundwaveIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
+                            1 -> AnimatedInsightsIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
+                            2 -> AnimatedEqualizerIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
+                            3 -> AnimatedPersonalizeIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
+                            4 -> AnimatedSmartFoldersIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
+                            else -> AnimatedSleepTimerIllustration(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp))
                         }
-
-                        val titleKey = when (page) {
-                            0 -> "onboarding_welcome_title"
-                            else -> "onboarding_insights_title"
-                        }
-                        Text(
-                            text = t(titleKey, language),
-                            color = VybWhite,
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
-                                .testTag("onboarding_title_page_$page")
-                        )
-
-                        val descKey = when (page) {
-                            0 -> "onboarding_welcome_desc"
-                            else -> "onboarding_insights_desc"
-                        }
-                        Text(
-                            text = t(descKey, language),
-                            color = VybGrey,
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Normal,
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp)
-                        )
                     }
+
+                    val titleKey = when (page) {
+                        0 -> "onboarding_welcome_title"
+                        1 -> "onboarding_insights_title"
+                        2 -> "onboarding_equalizer_title"
+                        3 -> "onboarding_personalize_title"
+                        4 -> "onboarding_smart_folders_title"
+                        else -> "onboarding_sleep_timer_title"
+                    }
+                    Text(
+                        text = t(titleKey, language),
+                        color = VybWhite,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                            .testTag("onboarding_title_page_$page")
+                    )
+
+                    val descKey = when (page) {
+                        0 -> "onboarding_welcome_desc"
+                        1 -> "onboarding_insights_desc"
+                        2 -> "onboarding_equalizer_desc"
+                        3 -> "onboarding_personalize_desc"
+                        4 -> "onboarding_smart_folders_desc"
+                        else -> "onboarding_sleep_timer_desc"
+                    }
+                    Text(
+                        text = t(descKey, language),
+                        color = VybGrey,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Normal,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp)
+                    )
                 }
             }
 
@@ -5276,7 +5855,7 @@ fun OnboardingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     repeat(pageCount) { index ->
-                        val isSelected = currentPage == index
+                        val isSelected = pagerState.currentPage == index
                         val widthAnim by animateDpAsState(
                             targetValue = if (isSelected) 20.dp else 6.dp,
                             animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy),
@@ -5296,7 +5875,9 @@ fun OnboardingScreen(
                                     indication = null
                                 ) {
                                     triggerHapticFeedback(context, "snap")
-                                    currentPage = index
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
                                 }
                                 .testTag("onboarding_dot_$index")
                         )
@@ -5313,8 +5894,10 @@ fun OnboardingScreen(
                 Button(
                     onClick = {
                         triggerHapticFeedback(context, "double_pulse")
-                        if (currentPage < pageCount - 1) {
-                            currentPage++
+                        if (pagerState.currentPage < pageCount - 1) {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                            }
                         } else {
                             onDismiss()
                         }
@@ -5340,14 +5923,14 @@ fun OnboardingScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = if (currentPage < pageCount - 1) t("onboarding_continue", language) else t("onboarding_get_started", language),
+                            text = if (pagerState.currentPage < pageCount - 1) t("onboarding_continue", language) else t("onboarding_get_started", language),
                             color = VybBlack,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
-                            imageVector = if (currentPage < pageCount - 1) Icons.Default.ArrowForward else Icons.Default.Check,
+                            imageVector = if (pagerState.currentPage < pageCount - 1) Icons.Default.ArrowForward else Icons.Default.Check,
                             contentDescription = null,
                             tint = VybBlack,
                             modifier = Modifier.size(18.dp)

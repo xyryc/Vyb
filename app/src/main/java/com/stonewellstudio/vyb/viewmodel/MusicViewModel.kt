@@ -64,6 +64,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _showAddToPlaylistDialog = MutableStateFlow<TrackEntity?>(null)
     val showAddToPlaylistDialog: StateFlow<TrackEntity?> = _showAddToPlaylistDialog.asStateFlow()
 
+    private val _trackToEditTags = MutableStateFlow<TrackEntity?>(null)
+    val trackToEditTags: StateFlow<TrackEntity?> = _trackToEditTags.asStateFlow()
+
     private val _sleepTimerRemaining = MutableStateFlow(0L)
     val sleepTimerRemaining: StateFlow<Long> = _sleepTimerRemaining.asStateFlow()
 
@@ -88,7 +91,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val visualizerStyle: StateFlow<String> = _visualizerStyle.asStateFlow()
 
     private val _controlsOpacity = MutableStateFlow(
-        sharedPrefs.getFloat("island_opacity", 0.95f)
+        sharedPrefs.getFloat("controls_opacity", 0.95f)
     )
     val controlsOpacity: StateFlow<Float> = _controlsOpacity.asStateFlow()
 
@@ -134,7 +137,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setControlsOpacity(opacity: Float) {
         _controlsOpacity.value = opacity
-        sharedPrefs.edit().putFloat("island_opacity", opacity).apply()
+        sharedPrefs.edit().putFloat("controls_opacity", opacity).apply()
     }
 
     fun setAmbientGlowEnabled(enabled: Boolean) {
@@ -545,8 +548,39 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Playback Operations
+    val playbackQueue = playerManager.playbackQueue
+
     fun playTrack(track: TrackEntity, sourceQueue: List<TrackEntity>) {
         playerManager.playTrack(track, sourceQueue)
+    }
+
+    fun playTrackFromQueue(track: TrackEntity) {
+        playerManager.playTrack(track)
+    }
+
+    fun reorderQueue(fromIndex: Int, toIndex: Int) {
+        playerManager.reorderQueue(fromIndex, toIndex)
+    }
+
+    fun removeFromQueue(index: Int) {
+        playerManager.removeFromQueue(index)
+    }
+
+    fun removeTrackFromQueue(trackId: String) {
+        playerManager.removeTrackFromQueue(trackId)
+    }
+
+    fun clearQueue() {
+        playerManager.clearQueue(keepCurrentTrack = true)
+    }
+
+    fun closePlayback() {
+        setPlayerExpanded(false)
+        playerManager.stopPlayback()
+    }
+
+    fun playNext(track: TrackEntity) {
+        playerManager.playNext(track)
     }
 
     fun toggleLike(track: TrackEntity) {
@@ -697,6 +731,58 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun showAddToPlaylistDialog(track: TrackEntity?) {
         _showAddToPlaylistDialog.value = track
+    }
+
+    fun showEditTagsDialog(track: TrackEntity?) {
+        _trackToEditTags.value = track
+    }
+
+    fun updateTrackMetadata(
+        track: TrackEntity,
+        newTitle: String,
+        newArtist: String,
+        newAlbum: String,
+        newGenre: String,
+        newCoverUri: android.net.Uri?
+    ) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val context = getApplication<Application>()
+                var finalCoverUrl = track.coverUrl
+
+                if (newCoverUri != null) {
+                    // Safe zero-permission Photo Picker flow: copy image into local app storage
+                    val coverFile = java.io.File(context.filesDir, "${track.id}_custom_cover_${System.currentTimeMillis()}.jpg")
+                    context.contentResolver.openInputStream(newCoverUri)?.use { input ->
+                        coverFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    finalCoverUrl = coverFile.absolutePath
+                }
+
+                val updatedTrack = track.copy(
+                    title = newTitle,
+                    artist = newArtist,
+                    album = newAlbum,
+                    genre = newGenre,
+                    coverUrl = finalCoverUrl
+                )
+
+                repository.updateTrack(updatedTrack)
+                playerManager.updateTrackInQueue(updatedTrack)
+
+                // If currently viewing a playlist, reload
+                val current = _currentScreen.value
+                if (current is ScreenState.PlaylistDetail) {
+                    loadPlaylistTracks(current.playlist.id)
+                }
+
+                _trackToEditTags.value = null
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun setPlayerExpanded(expanded: Boolean) {

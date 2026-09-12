@@ -166,6 +166,10 @@ class AudioPlayerManager(private val context: Context) {
         }
     }
 
+    fun setCurrentTrack(track: TrackEntity?) {
+        _currentTrack.value = track
+    }
+
     fun updateCurrentTrack(track: TrackEntity) {
         if (_currentTrack.value?.id == track.id) {
             _currentTrack.value = track
@@ -438,6 +442,56 @@ class AudioPlayerManager(private val context: Context) {
         updateQueueList()
     }
 
+    fun reorderQueue(fromIndex: Int, toIndex: Int) {
+        val list = _playbackQueue.value.toMutableList()
+        if (fromIndex in list.indices && toIndex in list.indices && fromIndex != toIndex) {
+            val item = list.removeAt(fromIndex)
+            list.add(toIndex, item)
+            _playbackQueue.value = list
+            originalQueue = list
+        }
+    }
+
+    fun removeFromQueue(index: Int) {
+        val list = _playbackQueue.value.toMutableList()
+        if (index in list.indices) {
+            val removed = list.removeAt(index)
+            _playbackQueue.value = list
+            originalQueue = originalQueue.filter { it.id != removed.id }
+        }
+    }
+
+    fun removeTrackFromQueue(trackId: String) {
+        val list = _playbackQueue.value.toMutableList()
+        val index = list.indexOfFirst { it.id == trackId }
+        if (index != -1) {
+            list.removeAt(index)
+            _playbackQueue.value = list
+            originalQueue = originalQueue.filter { it.id != trackId }
+        }
+    }
+
+    fun clearQueue(keepCurrentTrack: Boolean = true) {
+        val current = _currentTrack.value
+        if (keepCurrentTrack && current != null) {
+            _playbackQueue.value = listOf(current)
+            originalQueue = listOf(current)
+        } else {
+            _playbackQueue.value = emptyList()
+            originalQueue = emptyList()
+        }
+    }
+
+    fun playNext(track: TrackEntity) {
+        val list = _playbackQueue.value.toMutableList()
+        val currentIndex = list.indexOfFirst { it.id == _currentTrack.value?.id }
+        list.removeAll { it.id == track.id }
+        val insertIndex = if (currentIndex != -1 && currentIndex < list.size) currentIndex + 1 else 0
+        list.add(insertIndex, track)
+        _playbackQueue.value = list
+        originalQueue = list
+    }
+
     fun updateTrackInQueue(updatedTrack: TrackEntity) {
         originalQueue = originalQueue.map {
             if (it.id == updatedTrack.id) updatedTrack else it
@@ -573,6 +627,38 @@ class AudioPlayerManager(private val context: Context) {
             } catch (e: Exception) {
                 Log.e("AudioPlayerManager", "Error resuming playback", e)
             }
+        }
+    }
+
+    fun stopPlayback() {
+        cancelActiveCrossfade()
+        try {
+            mediaPlayer?.let { mp ->
+                if (mp.isPlaying) {
+                    mp.stop()
+                }
+                mp.reset()
+            }
+        } catch (e: Exception) {
+            Log.e("AudioPlayerManager", "Error stopping MediaPlayer", e)
+        }
+        _isPlaying.value = false
+        _isBuffering.value = false
+        _playbackPosition.value = 0L
+        _currentTrack.value = null
+        stopPositionUpdates()
+        abandonAudioFocus()
+
+        // Stop foreground media notification service
+        try {
+            if (MediaPlaybackService.isForeground) {
+                val intent = Intent(context, MediaPlaybackService::class.java).apply {
+                    action = MediaPlaybackService.ACTION_STOP
+                }
+                context.startService(intent)
+            }
+        } catch (e: Exception) {
+            Log.e("AudioPlayerManager", "Failed to send ACTION_STOP to MediaPlaybackService", e)
         }
     }
 
