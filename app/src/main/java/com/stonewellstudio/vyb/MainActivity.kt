@@ -5913,12 +5913,10 @@ fun OnboardingScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (pagerState.currentPage < pageCount - 1) {
-                    Text(
-                        text = t("onboarding_skip", language),
-                        color = VybGrey,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
+                    Box(
                         modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(VybSurfaceVariant.copy(alpha = 0.5f))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -5926,9 +5924,16 @@ fun OnboardingScreen(
                                 triggerHapticFeedback(context, "double_pulse")
                                 onDismiss()
                             }
-                            .padding(8.dp)
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
                             .testTag("onboarding_skip_btn")
-                    )
+                    ) {
+                        Text(
+                            text = t("onboarding_skip", language),
+                            color = VybWhite.copy(alpha = 0.85f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
 
@@ -6067,7 +6072,7 @@ fun OnboardingScreen(
                         .height(56.dp)
                         .testTag("onboarding_action_btn"),
                     colors = ButtonDefaults.buttonColors(containerColor = VybGreen),
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(14.dp),
                     elevation = ButtonDefaults.buttonElevation(
                         defaultElevation = 0.dp,
                         pressedElevation = 0.dp
