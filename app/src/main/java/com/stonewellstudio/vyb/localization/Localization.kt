@@ -102,6 +102,8 @@ object Translator {
             "theme_desc" to "Choose a brand styling color highlight",
             "off" to "Off",
             "import_songs" to "Import Songs",
+            "import_from_url" to "Import from URL",
+            "download" to "Download",
             "import_folder" to "Import Folder",
             "local_audio" to "Local Audio Tracks"
         ),

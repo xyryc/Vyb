@@ -17,6 +17,7 @@ sealed interface ScreenState {
     object Library : ScreenState
     data class PlaylistDetail(val playlist: PlaylistEntity) : ScreenState
     object Settings : ScreenState
+    object ImportFromUrl : ScreenState
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
@@ -116,6 +117,30 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _scannedCount = MutableStateFlow(0)
     val scannedCount: StateFlow<Int> = _scannedCount.asStateFlow()
+
+    val urlImportManager = com.stonewellstudio.vyb.importer.UrlImportManager(application, repository)
+    val urlImportUiState = urlImportManager.uiState
+    val urlImportHistory = urlImportManager.history
+
+    fun startUrlImport(url: String, forceReimport: Boolean = false) {
+        urlImportManager.startImport(url, forceReimport)
+    }
+
+    fun cancelUrlImport() {
+        urlImportManager.cancelDownload()
+    }
+
+    fun retryLastUrlImport() {
+        urlImportManager.retryLast()
+    }
+
+    fun dismissUrlImportResult() {
+        urlImportManager.dismissResult()
+    }
+
+    fun clearUrlImportHistory() {
+        urlImportManager.clearHistory()
+    }
 
     fun loadLyricsForTrack(track: TrackEntity) {
         viewModelScope.launch {

@@ -23,6 +23,14 @@ class TrackRepository(private val trackDao: TrackDao) {
         return trackDao.getTrackById(id)
     }
 
+    suspend fun getTrackByTitleAndArtist(title: String, artist: String): TrackEntity? {
+        return trackDao.getTrackByTitleAndArtist(title, artist)
+    }
+
+    suspend fun getTrackByPath(audioUrl: String): TrackEntity? {
+        return trackDao.getTrackByPath(audioUrl)
+    }
+
     fun searchTracks(query: String): Flow<List<TrackEntity>> {
         return trackDao.searchTracks(query)
     }

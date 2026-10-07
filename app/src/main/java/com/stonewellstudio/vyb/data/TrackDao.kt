@@ -20,6 +20,12 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE id = :id")
     suspend fun getTrackById(id: String): TrackEntity?
 
+    @Query("SELECT * FROM tracks WHERE LOWER(title) = LOWER(:title) AND LOWER(artist) = LOWER(:artist) LIMIT 1")
+    suspend fun getTrackByTitleAndArtist(title: String, artist: String): TrackEntity?
+
+    @Query("SELECT * FROM tracks WHERE audioUrl = :audioUrl LIMIT 1")
+    suspend fun getTrackByPath(audioUrl: String): TrackEntity?
+
     @Query("SELECT * FROM tracks WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%'")
     fun searchTracks(query: String): Flow<List<TrackEntity>>
 

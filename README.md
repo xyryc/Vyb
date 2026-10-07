@@ -92,12 +92,12 @@ Vyb represents modern Android development practices:
 3. Sync the Gradle configuration files.
 4. Run the `:app` module on a modern Android device or emulator.
 
-### How to Import Local Music
+### How to Import Music
 
-1. Navigate to the **Your Library** or **Home** screen.
-2. Tap the **Import** button (indicated by the upload/publish icon `Publish`).
-3. Select any `.mp3` or compatible audio file from your device's storage.
-4. Vyb will copy the file, extract its metadata, and automatically insert it into your playable library list!
+1. **Local Audio Files**: Navigate to **Your Library** → tap the **Import** button → choose **Import Songs** to select `.mp3`, `.flac`, etc. from device storage.
+2. **Local Folders**: Navigate to **Your Library** → tap **Import** → choose **Import Folder** to scan and auto-group entire albums or directories.
+3. **Direct Audio URL**: Navigate to **Your Library** → tap **Import** → choose **Import from URL** → paste a legitimate direct audio link (`.mp3`, `.m4a`, `.flac`, `.wav`, `.ogg`, `.opus`). Vyb validates the audio stream, checks for duplicates, downloads with background progress reporting, extracts embedded tags and cover art, and saves it directly to your permanent offline library.
+   > **Note**: Vyb only supports direct downloadable audio resources that you are authorized to download. Streaming platforms (YouTube, Spotify, Apple Music) and stream-ripping are strictly prohibited.
 
 ---
 

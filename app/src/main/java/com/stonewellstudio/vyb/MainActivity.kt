@@ -126,6 +126,7 @@ private fun getScreenOrdinal(screen: ScreenState): Int {
         is ScreenState.Library -> 2
         is ScreenState.PlaylistDetail -> 3
         is ScreenState.Settings -> 4
+        is ScreenState.ImportFromUrl -> 2
     }
 }
 
@@ -454,7 +455,10 @@ fun MainAppScreen(
                             isPlaying = isPlaying,
                             onLikeClick = { viewModel.toggleLike(it) },
                             onEditTagsClick = { viewModel.showEditTagsDialog(it) },
-                            onImportClick = { filePickerLauncher.launch("audio/*") }
+                            onImportClick = { filePickerLauncher.launch("audio/*") },
+                            onImportFileClick = { filePickerLauncher.launch("audio/*") },
+                            onImportFolderClick = { directoryPickerLauncher.launch(null) },
+                            onImportFromUrlClick = { viewModel.navigateTo(ScreenState.ImportFromUrl) }
                         )
 
                         is ScreenState.Search -> SearchScreen(
@@ -477,9 +481,18 @@ fun MainAppScreen(
                             onCreatePlaylistClick = { viewModel.showCreatePlaylistDialog(true) },
                             onImportFileClick = { filePickerLauncher.launch("audio/*") },
                             onImportFolderClick = { directoryPickerLauncher.launch(null) },
+                            onImportFromUrlClick = { viewModel.navigateTo(ScreenState.ImportFromUrl) },
                             currentTrack = currentTrack,
                             onLikeClick = { viewModel.toggleLike(it) },
                             onEditTagsClick = { viewModel.showEditTagsDialog(it) }
+                        )
+
+                        is ScreenState.ImportFromUrl -> com.stonewellstudio.vyb.ui.ImportFromUrlScreen(
+                            viewModel = viewModel,
+                            onBackClick = { viewModel.navigateTo(ScreenState.Library) },
+                            onOpenTrack = { track ->
+                                viewModel.playTrack(track, allTracks)
+                            }
                         )
 
                         is ScreenState.PlaylistDetail -> PlaylistDetailScreen(
@@ -787,8 +800,15 @@ fun HomeScreen(
     isPlaying: Boolean,
     onLikeClick: (TrackEntity) -> Unit,
     onEditTagsClick: ((TrackEntity) -> Unit)? = null,
-    onImportClick: (() -> Unit)? = null
+    onImportClick: (() -> Unit)? = null,
+    onImportFileClick: (() -> Unit)? = null,
+    onImportFolderClick: (() -> Unit)? = null,
+    onImportFromUrlClick: (() -> Unit)? = null
 ) {
+    val handleImportFiles = onImportFileClick ?: onImportClick ?: {}
+    val handleImportFolder = onImportFolderClick ?: {}
+    val handleImportUrl = onImportFromUrlClick ?: {}
+
     var hour by remember { mutableStateOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
 
     // Periodically update the hour of the day in case the app stays open
@@ -843,56 +863,116 @@ fun HomeScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 8.dp)
+                        .testTag("home_empty_welcome_card"),
                     colors = CardDefaults.cardColors(containerColor = VybSurface),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, VybSurfaceVariant.copy(alpha = 0.7f))
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                            .padding(22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.LibraryMusic,
-                            contentDescription = null,
-                            tint = VybGreen,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(VybGreen.copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Headphones,
+                                contentDescription = null,
+                                tint = VybGreen,
+                                modifier = Modifier.size(34.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
                         Text(
-                            text = "No Songs Found",
-                            fontSize = 18.sp,
+                            text = "Welcome to Vyb",
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            color = VybWhite
+                            color = VybWhite,
+                            textAlign = TextAlign.Center
                         )
+
                         Spacer(modifier = Modifier.height(6.dp))
+
                         Text(
-                            text = "Import local MP3 files or folders to get started.",
-                            fontSize = 14.sp,
+                            text = "Your offline music sanctuary. Choose how you'd like to add your favorite tracks to get started:",
+                            fontSize = 13.sp,
                             color = VybGrey,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp)
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        if (onImportClick != null) {
-                            Button(
-                                onClick = onImportClick,
-                                colors = ButtonDefaults.buttonColors(containerColor = VybGreen),
-                                shape = RoundedCornerShape(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Publish,
-                                    contentDescription = null,
-                                    tint = VybBlack,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Import Music",
-                                    color = VybBlack,
-                                    fontWeight = FontWeight.Bold
-                                )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Option 1: Import Audio Files
+                        HomeImportOptionTile(
+                            icon = Icons.Filled.AudioFile,
+                            title = "Import Audio Files",
+                            subtitle = "Select individual .mp3, .m4a, .flac, or .wav files",
+                            buttonText = "Browse Files",
+                            testTag = "home_import_files_btn",
+                            onClick = handleImportFiles
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Option 2: Import Entire Folder
+                        HomeImportOptionTile(
+                            icon = Icons.Filled.Folder,
+                            title = "Import Music Folder",
+                            subtitle = "Scan an entire folder to auto-organize albums & artists",
+                            buttonText = "Select Folder",
+                            testTag = "home_import_folder_btn",
+                            onClick = handleImportFolder
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Option 3: Import from Direct URL
+                        HomeImportOptionTile(
+                            icon = Icons.Filled.CloudDownload,
+                            title = "Import from URL",
+                            subtitle = "Paste a direct audio link to download into your library",
+                            buttonText = "Enter URL",
+                            testTag = "home_import_url_btn",
+                            onClick = handleImportUrl
+                        )
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        // Trust & Feature Badges
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(VybBlack.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                                .padding(vertical = 10.dp, horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Lock, contentDescription = null, tint = VybGreen, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text("100% Offline", color = VybGrey, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            }
+                            Text("•", color = VybGrey.copy(alpha = 0.4f))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Tune, contentDescription = null, tint = VybGreen, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text("5-Band EQ", color = VybGrey, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            }
+                            Text("•", color = VybGrey.copy(alpha = 0.4f))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.GraphicEq, contentDescription = null, tint = VybGreen, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text("Visualizer", color = VybGrey, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                             }
                         }
                     }
@@ -1174,6 +1254,87 @@ fun QuickGridItem(
                     modifier = Modifier
                         .padding(end = 12.dp)
                         .size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeImportOptionTile(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    buttonText: String,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .testTag(testTag),
+        colors = CardDefaults.cardColors(containerColor = VybSurfaceVariant.copy(alpha = 0.7f)),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, VybSurfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(VybGreen.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = VybGreen,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = VybWhite,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    color = VybGrey,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Button(
+                onClick = onClick,
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = VybGreen,
+                    contentColor = VybBlack
+                ),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                modifier = Modifier.height(36.dp)
+            ) {
+                Text(
+                    text = buttonText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -1485,6 +1646,7 @@ fun LibraryScreen(
     onCreatePlaylistClick: () -> Unit,
     onImportFileClick: () -> Unit,
     onImportFolderClick: () -> Unit,
+    onImportFromUrlClick: () -> Unit = {},
     currentTrack: TrackEntity?,
     onLikeClick: (TrackEntity) -> Unit,
     onEditTagsClick: ((TrackEntity) -> Unit)? = null
@@ -1547,6 +1709,14 @@ fun LibraryScreen(
                                 onImportFolderClick()
                             },
                             leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, tint = VybGreen) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(t("import_from_url", language), color = VybWhite) },
+                            onClick = {
+                                showImportMenu = false
+                                onImportFromUrlClick()
+                            },
+                            leadingIcon = { Icon(Icons.Filled.CloudDownload, contentDescription = null, tint = VybGreen) }
                         )
                     }
                 }
@@ -2911,33 +3081,19 @@ fun ExpandedPlayerScreen(
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = {
-                            triggerHapticFeedback(context, if (track.isLiked) "snap" else "double_pulse")
-                            onLikeClick()
-                        },
-                        modifier = Modifier.testTag("player_like_btn")
-                    ) {
-                        Icon(
-                            imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = "Like",
-                            tint = if (track.isLiked) VybGreen else VybWhite,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onEditTagsClick,
-                        modifier = Modifier.testTag("player_edit_tags_btn")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Edit,
-                            contentDescription = "Edit Track Tags",
-                            tint = VybWhite.copy(alpha = 0.85f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                IconButton(
+                    onClick = {
+                        triggerHapticFeedback(context, if (track.isLiked) "snap" else "double_pulse")
+                        onLikeClick()
+                    },
+                    modifier = Modifier.testTag("player_like_btn")
+                ) {
+                    Icon(
+                        imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = "Like",
+                        tint = if (track.isLiked) VybGreen else VybWhite,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
             }
 
