@@ -5,12 +5,49 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initMobileMenu();
   initTableOfContents();
   initFAQs();
   initSearch();
   initPrint();
   initEqualizer();
 });
+
+/* ==========================================================================
+   0. Mobile Navigation Drawer
+   ========================================================================== */
+function initMobileMenu() {
+  const menuBtn = document.getElementById('mobile-menu-btn');
+  const mobileMenu = document.getElementById('mobile-menu');
+  const iconOpen = document.getElementById('menu-icon-open');
+  const iconClose = document.getElementById('menu-icon-close');
+  const mobileLinks = document.querySelectorAll('.mobile-nav-link');
+
+  if (!menuBtn || !mobileMenu) return;
+
+  const toggleMenu = () => {
+    const isHidden = mobileMenu.classList.contains('hidden');
+    if (isHidden) {
+      mobileMenu.classList.remove('hidden');
+      if (iconOpen) iconOpen.classList.add('hidden');
+      if (iconClose) iconClose.classList.remove('hidden');
+    } else {
+      mobileMenu.classList.add('hidden');
+      if (iconOpen) iconOpen.classList.remove('hidden');
+      if (iconClose) iconClose.classList.add('hidden');
+    }
+  };
+
+  menuBtn.addEventListener('click', toggleMenu);
+
+  mobileLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      mobileMenu.classList.add('hidden');
+      if (iconOpen) iconOpen.classList.remove('hidden');
+      if (iconClose) iconClose.classList.add('hidden');
+    });
+  });
+}
 
 /* ==========================================================================
    1. Theme Management (Light/Dark Mode)
@@ -29,13 +66,15 @@ function initTheme() {
     setTheme('dark');
   }
 
-  themeToggleBtn.addEventListener('click', () => {
-    if (body.classList.contains('dark-theme')) {
-      setTheme('light');
-    } else {
-      setTheme('dark');
-    }
-  });
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      if (body.classList.contains('dark-theme')) {
+        setTheme('light');
+      } else {
+        setTheme('dark');
+      }
+    });
+  }
 
   function setTheme(theme) {
     if (theme === 'light') {
@@ -150,6 +189,8 @@ function initSearch() {
   const clearBtn = document.getElementById('clear-search');
   const sections = document.querySelectorAll('.policy-section');
   const statusContainer = document.getElementById('search-status');
+
+  if (!searchInput || !clearBtn || !statusContainer) return;
 
   searchInput.addEventListener('input', () => {
     const query = searchInput.value.toLowerCase().trim();

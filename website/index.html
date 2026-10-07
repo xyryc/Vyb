@@ -1,297 +1,675 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vyb - Sleek Offline Music Player for Android</title>
-  <meta name="description" content="Experience premium offline audio playback on Android with Vyb. Features a 5-band EQ, 3D spatial surround, sleep timer, smart playlists, and fully offline local storage.">
+  <meta name="description" content="Experience music the way it was meant to be heard. Vyb is a sleek, offline music player for Android with deep bass boost, 3D surround sound, dynamic visualizers, and zero ads.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Bungee&family=Comic+Neue:wght@300;400;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            bebas: ['"Bebas Neue"', 'sans-serif'],
+            bungee: ['"Bungee"', 'cursive', 'sans-serif'],
+            comic: ['"Comic Neue"', 'cursive', 'sans-serif'],
+          },
+          colors: {
+            vyb: {
+              emerald: '#10b981',
+              emeraldHover: '#059669',
+              cyan: '#06b6d4',
+              dark: '#070a13',
+              surface: '#0d1321',
+              card: 'rgba(19, 27, 46, 0.7)',
+              border: 'rgba(255, 255, 255, 0.08)',
+              glow: 'rgba(16, 185, 129, 0.15)'
+            }
+          },
+          boxShadow: {
+            'glow-emerald': '0 0 40px -10px rgba(16, 185, 129, 0.3)',
+            'glow-cyan': '0 0 40px -10px rgba(6, 182, 212, 0.3)',
+            'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+          }
+        }
+      }
+    }
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="dark-theme">
-  <!-- Glowing Background Accents -->
-  <div class="glow-bg glow-primary" id="glow-primary"></div>
-  <div class="glow-bg glow-secondary" id="glow-secondary"></div>
+<body class="bg-slate-950 text-slate-100 font-comic antialiased selection:bg-emerald-500 selection:text-black min-h-screen">
+
+  <!-- Ambient Glow Gradients -->
+  <div class="fixed top-0 left-1/4 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none -z-10"></div>
+  <div class="fixed top-1/3 right-10 w-96 h-96 bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none -z-10"></div>
 
   <!-- Header Navigation -->
-  <header class="site-header">
-    <div class="nav-container">
-      <a href="#" class="logo-container" id="logo-link">
-        <div class="logo-icon">
-          <span class="logo-dot"></span>
-        </div>
-        <span class="logo-text">Vyb</span>
+  <header class="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-slate-950/85 border-b border-white/10 transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <!-- Brand Logo with Real App Icon -->
+      <a href="#" class="flex items-center gap-3.5 group">
+        <img src="app_icon.webp" alt="Vyb App Icon" class="w-10 h-10 rounded-xl shadow-lg shadow-emerald-500/25 group-hover:scale-105 transition-transform object-cover border border-white/10" />
+        <span class="font-bungee text-2xl tracking-wide text-white group-hover:text-emerald-400 transition-colors">VYB</span>
       </a>
-      <nav class="main-nav" aria-label="Main Navigation">
-        <ul class="nav-links">
-          <li><a href="#features" class="nav-link">Features</a></li>
-          <li><a href="#interactive-eq" class="nav-link">Equalizer</a></li>
-          <li><a href="#download" class="nav-link">Download</a></li>
-          <li><a href="privacy.html" class="nav-link">Privacy Policy</a></li>
-        </ul>
+
+      <!-- Expanded Navigation Menu -->
+      <nav class="hidden lg:flex items-center gap-7 text-sm font-bold text-slate-300 tracking-wide">
+        <a href="#overview" class="hover:text-emerald-400 transition-colors">Overview</a>
+        <a href="#features" class="hover:text-emerald-400 transition-colors">Features</a>
+        <a href="#screenshots" class="hover:text-emerald-400 transition-colors">Screenshots</a>
+        <a href="#sound-studio" class="hover:text-emerald-400 transition-colors">Sound Studio</a>
+        <a href="#faq" class="hover:text-emerald-400 transition-colors">FAQ</a>
+        <a href="privacy.html" class="hover:text-emerald-400 transition-colors">Privacy</a>
+        <a href="https://github.com/stonewellstudio/vyb" target="_blank" rel="noopener" class="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>Source</span>
+        </a>
       </nav>
-      <div class="nav-actions">
-        <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme" title="Toggle Light/Dark Mode">
-          <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+
+      <!-- Action Buttons & Mobile Menu Toggle -->
+      <div class="flex items-center gap-3">
+        <a href="#download" class="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 text-xs font-bungee transition-all">
+          <span>Get Free</span>
+        </a>
+        <a href="https://play.google.com/store/apps/details?id=com.stonewellstudio.vyb" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bungee text-xs shadow-lg shadow-emerald-500/25 transition-all hover:scale-105">
+          <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 512 512">
+            <path fill="#00E676" d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1z"/>
+            <path fill="#0086F8" d="M47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0z"/>
+            <path fill="#FF3D00" d="M325.3 277.7l60.1 60.1L104.6 499l220.7-221.3z"/>
+            <path fill="#FFC107" d="M441.7 232.3l-56.3-32.5-60.1 60.1 60.1 60.1 56.4-32.4c19.8-11.5 19.8-30.1-.1-41.3z"/>
           </svg>
-          <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+          <span>Google Play</span>
+        </a>
+        <!-- Mobile Menu Toggle Button -->
+        <button id="mobile-menu-btn" type="button" class="lg:hidden p-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-white/10 transition-colors" aria-label="Toggle navigation menu">
+          <svg id="menu-icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+          <svg id="menu-icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </button>
-        <a href="#download" class="btn btn-primary btn-sm header-cta">Download APK</a>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobile-menu" class="hidden lg:hidden border-t border-white/10 bg-slate-950/95 backdrop-blur-2xl px-6 py-6 transition-all duration-300">
+      <div class="flex flex-col gap-4 text-base font-bold text-slate-200">
+        <a href="#overview" class="mobile-nav-link hover:text-emerald-400 py-1 transition-colors">Overview</a>
+        <a href="#features" class="mobile-nav-link hover:text-emerald-400 py-1 transition-colors">Features</a>
+        <a href="#screenshots" class="mobile-nav-link hover:text-emerald-400 py-1 transition-colors">Screenshots</a>
+        <a href="#sound-studio" class="mobile-nav-link hover:text-emerald-400 py-1 transition-colors">Sound Studio</a>
+        <a href="#faq" class="mobile-nav-link hover:text-emerald-400 py-1 transition-colors">FAQ</a>
+        <a href="privacy.html" class="mobile-nav-link hover:text-emerald-400 py-1 transition-colors">Privacy Policy</a>
+        <a href="https://github.com/stonewellstudio/vyb" target="_blank" rel="noopener" class="mobile-nav-link flex items-center gap-2 hover:text-emerald-400 py-1 transition-colors text-slate-400">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>Source Code</span>
+        </a>
       </div>
     </div>
   </header>
 
-  <main class="main-content">
+  <main class="pt-28">
     <!-- Hero Section -->
-    <section class="hero-section">
-      <div class="hero-container">
-        <div class="hero-text-content">
-          <div class="badge">OFFLINE-FIRST MUSIC PLAYER</div>
-          <h1 class="hero-title">Vyb. Play music with style.</h1>
-          <p class="hero-subtitle">A premium offline music player and spatial equalizer for Android. Built with a gorgeous Material 3 interface, tactile sound tuning controls, and a rich local playback experience.</p>
-          <div class="hero-actions" style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm);">
-            <a href="#download" class="btn btn-primary btn-sm" style="padding: 12px 28px; font-size: 1rem;">Download APK</a>
-            <a href="privacy.html" class="btn btn-secondary btn-sm" style="padding: 12px 28px; font-size: 1rem;">Read Privacy Policy</a>
+    <section id="overview" class="relative overflow-hidden pt-12 pb-16 lg:pt-20 lg:pb-24">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- Header Text -->
+        <div class="text-center max-w-4xl mx-auto space-y-4">
+          
+          <h1 class="font-bebas text-6xl sm:text-8xl lg:text-9xl tracking-normal text-white leading-[0.9] uppercase">
+            PLAY MUSIC <br/>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">WITH STYLE.</span>
+          </h1>
+
+          <div class="pt-2">
+            <p class="font-bungee text-emerald-400 text-sm sm:text-base tracking-widest uppercase">
+              100% Offline • Zero Ads • No Accounts
+            </p>
+          </div>
+          
+          <p class="font-comic text-lg sm:text-2xl text-slate-300 max-w-2xl mx-auto leading-relaxed pt-2">
+            Turn your phone into a pocket sound system. Enjoy deep bass you can feel, 3D surround sound that fills your ears, and live animated visualizers that move with every beat.
+          </p>
+
+          <!-- Call To Actions -->
+          <div class="flex flex-wrap items-center justify-center gap-5 pt-6">
+            
+            <!-- Authentic Google Play Badge Button -->
+            <a href="https://play.google.com/store/apps/details?id=com.stonewellstudio.vyb" target="_blank" rel="noopener" class="inline-flex items-center gap-3.5 px-7 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-white/20 hover:border-emerald-500/50 shadow-2xl shadow-black/60 transition-all hover:scale-105 group">
+              <!-- Official Multi-colored Google Play Logo -->
+              <svg class="w-8 h-8 flex-shrink-0 transform group-hover:scale-110 transition-transform" viewBox="0 0 512 512">
+                <path fill="#00E676" d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1z"/>
+                <path fill="#0086F8" d="M47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0z"/>
+                <path fill="#FF3D00" d="M325.3 277.7l60.1 60.1L104.6 499l220.7-221.3z"/>
+                <path fill="#FFC107" d="M441.7 232.3l-56.3-32.5-60.1 60.1 60.1 60.1 56.4-32.4c19.8-11.5 19.8-30.1-.1-41.3z"/>
+              </svg>
+              <div class="text-left">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">GET IT ON</div>
+                <div class="text-xl font-bebas tracking-wide text-white leading-tight">Google Play</div>
+              </div>
+            </a>
+
+            <!-- GitHub Button -->
+            <a href="https://github.com/stonewellstudio/vyb" target="_blank" rel="noopener" class="inline-flex items-center gap-3 px-7 py-3.5 rounded-2xl text-base font-bold text-slate-200 bg-slate-900/60 hover:bg-slate-900 border border-white/10 hover:border-white/25 transition-all hover:scale-105">
+              <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+              </svg>
+              <span class="font-bungee text-sm">GitHub</span>
+            </a>
+
           </div>
         </div>
 
-        <!-- Now Playing Showcase -->
-        <div class="interactive-widget-container">
-          <div class="widget-label">Now Playing, Anywhere</div>
-          <div class="now-playing-card" style="width: 300px; background: linear-gradient(135deg, #1ed760, #0d6b36); border-radius: 20px; padding: 20px; box-shadow: 0 24px 60px rgba(0,0,0,.45);">
-            <div style="display:flex; align-items:center; gap:14px;">
-              <div style="width:56px;height:56px;border-radius:12px;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" style="width:28px;height:28px;"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
-              </div>
-              <div style="min-width:0; flex:1;">
-                <div style="color:#ffffff; font-weight:700; font-size:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Midnight Drive</div>
-                <div style="color:rgba(255,255,255,.8); font-size:.83rem; margin-top:2px;">Synthwave Project</div>
-              </div>
+        <!-- Promo Banner Showcase -->
+        <div class="mt-16 max-w-5xl mx-auto">
+          <div class="relative group rounded-3xl overflow-hidden p-1.5 bg-gradient-to-b from-white/15 via-white/5 to-transparent border border-white/10 shadow-2xl shadow-emerald-950/40">
+            <div class="relative rounded-[22px] overflow-hidden bg-slate-900">
+              <img 
+                src="screenshots/00_promo_banner.png" 
+                alt="Vyb Music Player Showcase Banner" 
+                class="w-full h-auto object-cover transform group-hover:scale-[1.01] transition-transform duration-700 ease-out"
+                loading="eager"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent pointer-events-none"></div>
             </div>
-            <div class="waveform" style="margin-top:18px; height:26px; gap:5px;">
-              <span class="bar bar-1" style="width:4px; border-radius:2px;"></span>
-              <span class="bar bar-2" style="width:4px; border-radius:2px;"></span>
-              <span class="bar bar-3" style="width:4px; border-radius:2px;"></span>
-              <span class="bar bar-4" style="width:4px; border-radius:2px;"></span>
+            
+            <div class="absolute bottom-6 left-8 right-8 flex items-center justify-between text-xs sm:text-sm text-slate-300 pointer-events-none">
+              <span class="font-bungee text-xs sm:text-sm tracking-wide text-white bg-slate-950/80 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10">
+                Full Sound Control • Glowing Accents • Pure Audio
+              </span>
+              <span class="hidden sm:inline-block font-bungee text-xs text-emerald-400 bg-slate-950/80 px-4 py-2 rounded-xl border border-white/10">
+                Free on Android
+              </span>
             </div>
-            <div style="color:rgba(255,255,255,.8); font-size:.8rem; margin-top:16px;">Your music library, beautifully organized — played fully offline.</div>
           </div>
         </div>
+
       </div>
     </section>
 
     <!-- Key Features Section -->
-    <section id="features" class="landing-section" style="max-width: 1200px; margin: var(--spacing-xl) auto; padding: 0 var(--spacing-md);">
-      <div style="text-align: center; margin-bottom: var(--spacing-lg);">
-        <h2 style="font-family: var(--font-heading); font-size: 2.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: var(--spacing-xs);">Designed for Audio Enthusiasts</h2>
-        <p style="color: var(--text-secondary); font-size: 1.1rem; max-width: 600px; margin: 0 auto;">Vyb combines elegant Material 3 aesthetics with robust offline features to deliver the ultimate listening experience.</p>
-      </div>
-
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 19v4M8 23h8"></path></svg>
+    <section id="features" class="py-24 relative">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- Authentic Header Style -->
+        <div class="text-center max-w-3xl mx-auto mb-16">
+          <div class="flex items-center justify-center gap-3 mb-2">
+            <span class="h-px w-10 bg-emerald-500/50"></span>
+            <span class="font-bungee text-xs sm:text-sm text-emerald-400 tracking-widest uppercase">Pure Sound</span>
+            <span class="h-px w-10 bg-emerald-500/50"></span>
           </div>
-          <h3>Hi-Fi 5-Band Equalizer</h3>
-          <p>Tweak your audio to perfection with custom vertical frequency sliders, dynamic visual tracking, and acoustic presets (Rock, Pop, Jazz, Folk, and more).</p>
+          <h2 class="font-bebas text-5xl sm:text-7xl lg:text-8xl tracking-wide text-white uppercase">
+            Everything Built For Your Vibe
+          </h2>
+          <p class="font-comic text-slate-400 text-lg sm:text-xl mt-2">
+            No bloated menus or useless extras. Just the tools you need to enjoy your sound.
+          </p>
         </div>
 
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><path d="M2 12h20"></path></svg>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          
+          <!-- Card 1 -->
+          <div class="p-8 rounded-3xl bg-slate-900/60 border border-white/10 hover:border-emerald-500/40 transition-all hover:-translate-y-1 shadow-lg group relative overflow-hidden">
+            <div class="font-bebas text-6xl text-emerald-500/15 absolute top-4 right-6 pointer-events-none">01</div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+              </svg>
+            </div>
+            <h3 class="font-bebas text-3xl tracking-wide text-white mb-2 uppercase">Deep Bass &amp; Custom EQ</h3>
+            <p class="font-comic text-slate-400 text-base leading-relaxed">
+              Dial in the exact sound you love. Crank up the bass booster knob, widen the room with 3D surround sound, or pick instant presets like Rock, Pop, and Jazz.
+            </p>
           </div>
-          <h3>Tactile Spatial Effects</h3>
-          <p>Simulate surround environments with physical rotating dial controls for Deep Bass Boost and Spatial 3D Surround sound depth.</p>
-        </div>
 
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+          <!-- Card 2 -->
+          <div class="p-8 rounded-3xl bg-slate-900/60 border border-white/10 hover:border-cyan-500/40 transition-all hover:-translate-y-1 shadow-lg group relative overflow-hidden">
+            <div class="font-bebas text-6xl text-cyan-500/15 absolute top-4 right-6 pointer-events-none">02</div>
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-6 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <h3 class="font-bebas text-3xl tracking-wide text-white mb-2 uppercase">100% Offline Freedom</h3>
+            <p class="font-comic text-slate-400 text-base leading-relaxed">
+              Listen anytime, anywhere. On flights, subways, road trips, or at the gym—your music is always ready without touching your mobile data or Wi-Fi.
+            </p>
           </div>
-          <h3>Background Playback &amp; Media Controls</h3>
-          <p>Keep listening with the app in the background or screen locked. A media notification gives you play, pause, skip, like, and seek controls at a glance.</p>
-        </div>
 
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          <!-- Card 3 -->
+          <div class="p-8 rounded-3xl bg-slate-900/60 border border-white/10 hover:border-emerald-500/40 transition-all hover:-translate-y-1 shadow-lg group relative overflow-hidden">
+            <div class="font-bebas text-6xl text-emerald-500/15 absolute top-4 right-6 pointer-events-none">03</div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+              </svg>
+            </div>
+            <h3 class="font-bebas text-3xl tracking-wide text-white mb-2 uppercase">Live Wave Visualizers</h3>
+            <p class="font-comic text-slate-400 text-base leading-relaxed">
+              Watch your audio dance. Mesmerizing waveforms and dynamic particles react to the beat in real time, turning your phone into an audio centerpiece.
+            </p>
           </div>
-          <h3>Offline Sandbox Security</h3>
-          <p>Import your files into our secure app sandbox. Clean databases, local usage statistics, and zero tracking servers guarantee absolute privacy.</p>
+
+          <!-- Card 4 -->
+          <div class="p-8 rounded-3xl bg-slate-900/60 border border-white/10 hover:border-emerald-500/40 transition-all hover:-translate-y-1 shadow-lg group relative overflow-hidden">
+            <div class="font-bebas text-6xl text-emerald-500/15 absolute top-4 right-6 pointer-events-none">04</div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+              </svg>
+            </div>
+            <h3 class="font-bebas text-3xl tracking-wide text-white mb-2 uppercase">Instant Music Import</h3>
+            <p class="font-comic text-slate-400 text-base leading-relaxed">
+              Bring in your tunes effortlessly. Import folders directly from your phone storage, or download tracks straight into your library with a quick link.
+            </p>
+          </div>
+
+          <!-- Card 5 -->
+          <div class="p-8 rounded-3xl bg-slate-900/60 border border-white/10 hover:border-cyan-500/40 transition-all hover:-translate-y-1 shadow-lg group relative overflow-hidden">
+            <div class="font-bebas text-6xl text-cyan-500/15 absolute top-4 right-6 pointer-events-none">05</div>
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-6 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+              </svg>
+            </div>
+            <h3 class="font-bebas text-3xl tracking-wide text-white mb-2 uppercase">Neon Accent Themes</h3>
+            <p class="font-comic text-slate-400 text-base leading-relaxed">
+              Match the player to your mood. Switch between deep dark themes and glowing neon colors like Emerald Glow, Cosmic Blue, Sunset Amber, and Neon Purple.
+            </p>
+          </div>
+
+          <!-- Card 6 -->
+          <div class="p-8 rounded-3xl bg-slate-900/60 border border-white/10 hover:border-emerald-500/40 transition-all hover:-translate-y-1 shadow-lg group relative overflow-hidden">
+            <div class="font-bebas text-6xl text-emerald-500/15 absolute top-4 right-6 pointer-events-none">06</div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+            </div>
+            <h3 class="font-bebas text-3xl tracking-wide text-white mb-2 uppercase">Zero Ads. Zero Tracking.</h3>
+            <p class="font-comic text-slate-400 text-base leading-relaxed">
+              No obnoxious ad banners, no subscription prompts, and no surveillance. Your music, playlists, and listening stats stay strictly private on your phone.
+            </p>
+          </div>
+
         </div>
       </div>
     </section>
 
-    <!-- Interactive Tuning Showcase -->
-    <section id="interactive-eq" class="landing-section" style="background-color: var(--bg-card); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: var(--spacing-xl) var(--spacing-md);">
-      <div style="max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1.2fr; gap: var(--spacing-xl); align-items: center;">
-        <div>
-          <div class="badge">TACTILE INTERACTION</div>
-          <h2 style="font-family: var(--font-heading); font-size: 2.5rem; font-weight: 800; letter-spacing: -1px; margin-top: var(--spacing-xs); margin-bottom: var(--spacing-sm);">Adjust Sound in Real Time</h2>
-          <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm); line-height: 1.75;">Drag the sliders on the right or turn the knobs to preview the physical audio engine tuning design. Vyb features smooth Canvas drawing and low-latency feedback to make tuning satisfying and fun.</p>
+    <!-- Screenshots Gallery Section -->
+    <section id="screenshots" class="py-24 bg-slate-900/50 border-y border-white/5 relative">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- Authentic Header Style -->
+        <div class="text-center max-w-3xl mx-auto mb-16">
+          <div class="flex items-center justify-center gap-3 mb-2">
+            <span class="h-px w-10 bg-cyan-500/50"></span>
+            <span class="font-bungee text-xs sm:text-sm text-cyan-400 tracking-widest uppercase">Live View</span>
+            <span class="h-px w-10 bg-cyan-500/50"></span>
+          </div>
+          <h2 class="font-bebas text-5xl sm:text-7xl lg:text-8xl tracking-wide text-white uppercase">
+            Screens That Hit Different
+          </h2>
+          <p class="font-comic text-slate-400 text-lg sm:text-xl mt-2">
+            Every screen is tailored for fast navigation and comfortable listening.
+          </p>
+        </div>
+
+        <!-- Screenshots Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
           
-          <div class="callout callout-info" style="margin-top: var(--spacing-md);">
-            <strong>Did you know?</strong> Turning on **Spatial 3D Surround** expands the audio soundstage, simulating professional acoustic rooms entirely offline.
-          </div>
-        </div>
-
-        <!-- Interactive EQ Console Widget -->
-        <div class="eq-console-wrapper">
-          <div class="eq-console">
-            <div class="eq-console-header">
-              <span>Vyb Studio Equalizer</span>
-              <div class="eq-led-indicators">
-                <span class="led led-active"></span>
-                <span class="led-text">ACTIVE</span>
-              </div>
+          <!-- 04: Now Playing -->
+          <div class="group relative rounded-2xl overflow-hidden bg-slate-950 border border-white/10 hover:border-emerald-500/50 transition-all duration-300 hover:-translate-y-1.5 shadow-lg hover:shadow-glow-emerald">
+            <div class="aspect-[9/19.5] overflow-hidden bg-slate-900">
+              <img src="screenshots/04_now_playing.png" alt="Now Playing Screen" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
             </div>
-
-            <!-- Sliders -->
-            <div class="eq-sliders-container">
-              <div class="eq-slider-column">
-                <div class="slider-track-vertical">
-                  <input type="range" class="eq-slider" min="-12" max="12" value="4" orient="vertical" aria-label="60 Hertz Equalizer Slider">
-                  <div class="slider-fill-vertical" style="height: 66.6%;"></div>
-                </div>
-                <span class="slider-label">60Hz</span>
-              </div>
-
-              <div class="eq-slider-column">
-                <div class="slider-track-vertical">
-                  <input type="range" class="eq-slider" min="-12" max="12" value="8" orient="vertical" aria-label="230 Hertz Equalizer Slider">
-                  <div class="slider-fill-vertical" style="height: 83.3%;"></div>
-                </div>
-                <span class="slider-label">230Hz</span>
-              </div>
-
-              <div class="eq-slider-column">
-                <div class="slider-track-vertical">
-                  <input type="range" class="eq-slider" min="-12" max="12" value="-2" orient="vertical" aria-label="910 Hertz Equalizer Slider">
-                  <div class="slider-fill-vertical" style="height: 41.6%;"></div>
-                </div>
-                <span class="slider-label">910Hz</span>
-              </div>
-
-              <div class="eq-slider-column">
-                <div class="slider-track-vertical">
-                  <input type="range" class="eq-slider" min="-12" max="12" value="3" orient="vertical" aria-label="4 KiloHertz Equalizer Slider">
-                  <div class="slider-fill-vertical" style="height: 62.5%;"></div>
-                </div>
-                <span class="slider-label">4kHz</span>
-              </div>
-
-              <div class="eq-slider-column">
-                <div class="slider-track-vertical">
-                  <input type="range" class="eq-slider" min="-12" max="12" value="9" orient="vertical" aria-label="14 KiloHertz Equalizer Slider">
-                  <div class="slider-fill-vertical" style="height: 87.5%;"></div>
-                </div>
-                <span class="slider-label">14kHz</span>
-              </div>
-            </div>
-
-            <!-- Knobs -->
-            <div class="eq-knobs-container">
-              <div class="eq-knob-wrapper">
-                <div class="rotary-knob-container">
-                  <div class="rotary-knob" id="bass-knob" tabindex="0" role="slider" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" aria-label="Deep Bass Boost Knob">
-                    <div class="knob-pointer"></div>
-                  </div>
-                  <div class="knob-glow"></div>
-                </div>
-                <span class="knob-title">BASS BOOST</span>
-                <span class="knob-value" id="bass-value">70%</span>
-              </div>
-
-              <div class="eq-knob-wrapper">
-                <div class="rotary-knob-container">
-                  <div class="rotary-knob" id="spatial-knob" tabindex="0" role="slider" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100" aria-label="Spatial 3D Surround Knob">
-                    <div class="knob-pointer" style="transform: rotate(18deg);"></div>
-                  </div>
-                  <div class="knob-glow"></div>
-                </div>
-                <span class="knob-title">3D SURROUND</span>
-                <span class="knob-value" id="spatial-value">45%</span>
-              </div>
+            <div class="p-3 bg-slate-950/90 border-t border-white/5 text-center">
+              <span class="font-bebas text-lg text-emerald-400 block tracking-wide">NOW PLAYING</span>
+              <span class="font-comic text-xs text-slate-400">Full Screen Player</span>
             </div>
           </div>
+
+          <!-- 05: Fluid Visualizer -->
+          <div class="group relative rounded-2xl overflow-hidden bg-slate-950 border border-white/10 hover:border-cyan-500/50 transition-all duration-300 hover:-translate-y-1.5 shadow-lg hover:shadow-glow-cyan">
+            <div class="aspect-[9/19.5] overflow-hidden bg-slate-900">
+              <img src="screenshots/05_fluid_visualizer.png" alt="Fluid Particle Visualizer" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
+            </div>
+            <div class="p-3 bg-slate-950/90 border-t border-white/5 text-center">
+              <span class="font-bebas text-lg text-cyan-400 block tracking-wide">VISUALIZER</span>
+              <span class="font-comic text-xs text-slate-400">Reactive Waves</span>
+            </div>
+          </div>
+
+          <!-- 06: Sound Control -->
+          <div class="group relative rounded-2xl overflow-hidden bg-slate-950 border border-white/10 hover:border-emerald-500/50 transition-all duration-300 hover:-translate-y-1.5 shadow-lg hover:shadow-glow-emerald">
+            <div class="aspect-[9/19.5] overflow-hidden bg-slate-900">
+              <img src="screenshots/06_equalizer_sound_control.png" alt="Equalizer & Bass Boost" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
+            </div>
+            <div class="p-3 bg-slate-950/90 border-t border-white/5 text-center">
+              <span class="font-bebas text-lg text-emerald-400 block tracking-wide">SOUND CONTROL</span>
+              <span class="font-comic text-xs text-slate-400">Equalizer &amp; Knobs</span>
+            </div>
+          </div>
+
+          <!-- 03: Home Dashboard -->
+          <div class="group relative rounded-2xl overflow-hidden bg-slate-950 border border-white/10 hover:border-emerald-500/50 transition-all duration-300 hover:-translate-y-1.5 shadow-lg">
+            <div class="aspect-[9/19.5] overflow-hidden bg-slate-900">
+              <img src="screenshots/03_home_dashboard.png" alt="Home Dashboard" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
+            </div>
+            <div class="p-3 bg-slate-950/90 border-t border-white/5 text-center">
+              <span class="font-bebas text-lg text-slate-200 block tracking-wide">HOME</span>
+              <span class="font-comic text-xs text-slate-400">Smart Mixes</span>
+            </div>
+          </div>
+
+          <!-- 07: Library -->
+          <div class="group relative rounded-2xl overflow-hidden bg-slate-950 border border-white/10 hover:border-emerald-500/50 transition-all duration-300 hover:-translate-y-1.5 shadow-lg">
+            <div class="aspect-[9/19.5] overflow-hidden bg-slate-900">
+              <img src="screenshots/07_library.png" alt="Music Library" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
+            </div>
+            <div class="p-3 bg-slate-950/90 border-t border-white/5 text-center">
+              <span class="font-bebas text-lg text-slate-200 block tracking-wide">LIBRARY</span>
+              <span class="font-comic text-xs text-slate-400">Smart Folders</span>
+            </div>
+          </div>
+
+          <!-- 08: Playlist Detail -->
+          <div class="group relative rounded-2xl overflow-hidden bg-slate-950 border border-white/10 hover:border-emerald-500/50 transition-all duration-300 hover:-translate-y-1.5 shadow-lg">
+            <div class="aspect-[9/19.5] overflow-hidden bg-slate-900">
+              <img src="screenshots/08_playlist_detail.png" alt="Playlists" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
+            </div>
+            <div class="p-3 bg-slate-950/90 border-t border-white/5 text-center">
+              <span class="font-bebas text-lg text-slate-200 block tracking-wide">PLAYLISTS</span>
+              <span class="font-comic text-xs text-slate-400">Custom Queues</span>
+            </div>
+          </div>
+
+          <!-- 11: Theme Accents -->
+          <div class="group relative rounded-2xl overflow-hidden bg-slate-950 border border-white/10 hover:border-cyan-500/50 transition-all duration-300 hover:-translate-y-1.5 shadow-lg">
+            <div class="aspect-[9/19.5] overflow-hidden bg-slate-900">
+              <img src="screenshots/11_theme_accents.png" alt="Theme Accents Selection" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
+            </div>
+            <div class="p-3 bg-slate-950/90 border-t border-white/5 text-center">
+              <span class="font-bebas text-lg text-cyan-400 block tracking-wide">THEMES</span>
+              <span class="font-comic text-xs text-slate-400">Cosmic Blue Accents</span>
+            </div>
+          </div>
+
+          <!-- 10: Settings -->
+          <div class="group relative rounded-2xl overflow-hidden bg-slate-950 border border-white/10 hover:border-emerald-500/50 transition-all duration-300 hover:-translate-y-1.5 shadow-lg">
+            <div class="aspect-[9/19.5] overflow-hidden bg-slate-900">
+              <img src="screenshots/10_settings.png" alt="Settings Screen" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
+            </div>
+            <div class="p-3 bg-slate-950/90 border-t border-white/5 text-center">
+              <span class="font-bebas text-lg text-slate-200 block tracking-wide">SETTINGS</span>
+              <span class="font-comic text-xs text-slate-400">Customization</span>
+            </div>
+          </div>
+
         </div>
+      </div>
+    </section>
+
+    <!-- Interactive Sound Studio Showcase -->
+    <section id="sound-studio" class="py-24 bg-slate-900/60 border-t border-white/5 relative">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          <div class="lg:col-span-5 space-y-4">
+            <div class="flex items-center gap-3">
+              <span class="h-px w-10 bg-emerald-500/50"></span>
+              <span class="font-bungee text-xs text-emerald-400 tracking-widest uppercase">Analog Feel</span>
+            </div>
+            <h2 class="font-bebas text-5xl sm:text-7xl lg:text-8xl text-white tracking-wide uppercase leading-none">
+              Take Control of The Sound
+            </h2>
+            <p class="font-comic text-slate-300 text-lg sm:text-xl leading-relaxed pt-2">
+              Drag the sliders or turn the knobs below to test the sound tuning controls. In Vyb, adjusting the music is smooth, satisfying, and immediate.
+            </p>
+            
+            <div class="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mt-4">
+              <span class="font-bungee text-xs text-emerald-400 block mb-1">Room-Filling 3D Audio</span>
+              <p class="font-comic text-sm text-slate-300 leading-relaxed">
+                Turning on <strong>Spatial 3D Surround</strong> expands your music, creating a wide acoustic soundstage right in your headphones.
+              </p>
+            </div>
+          </div>
+
+          <!-- Interactive EQ Console Widget -->
+          <div class="lg:col-span-7">
+            <div class="p-6 sm:p-8 rounded-3xl bg-slate-950 border border-white/10 shadow-2xl shadow-black/80">
+              <div class="flex items-center justify-between border-b border-white/10 pb-5 mb-6">
+                <span class="font-bebas text-2xl tracking-wide text-white">Vyb Sound Studio</span>
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span class="font-bungee text-[10px] tracking-widest text-emerald-400 uppercase">Live Demo</span>
+                </div>
+              </div>
+
+              <!-- Sliders -->
+              <div class="eq-sliders-container mb-8">
+                <div class="eq-slider-column">
+                  <div class="slider-track-vertical">
+                    <input type="range" class="eq-slider" min="-12" max="12" value="4" orient="vertical" aria-label="Deep Bass Slider">
+                    <div class="slider-fill-vertical" style="height: 66.6%;"></div>
+                  </div>
+                  <span class="font-bebas text-base text-slate-300">Bass</span>
+                </div>
+
+                <div class="eq-slider-column">
+                  <div class="slider-track-vertical">
+                    <input type="range" class="eq-slider" min="-12" max="12" value="8" orient="vertical" aria-label="Warmth Slider">
+                    <div class="slider-fill-vertical" style="height: 83.3%;"></div>
+                  </div>
+                  <span class="font-bebas text-base text-slate-300">Low</span>
+                </div>
+
+                <div class="eq-slider-column">
+                  <div class="slider-track-vertical">
+                    <input type="range" class="eq-slider" min="-12" max="12" value="-2" orient="vertical" aria-label="Vocals Slider">
+                    <div class="slider-fill-vertical" style="height: 41.6%;"></div>
+                  </div>
+                  <span class="font-bebas text-base text-slate-300">Mid</span>
+                </div>
+
+                <div class="eq-slider-column">
+                  <div class="slider-track-vertical">
+                    <input type="range" class="eq-slider" min="-12" max="12" value="3" orient="vertical" aria-label="Presence Slider">
+                    <div class="slider-fill-vertical" style="height: 62.5%;"></div>
+                  </div>
+                  <span class="font-bebas text-base text-slate-300">High</span>
+                </div>
+
+                <div class="eq-slider-column">
+                  <div class="slider-track-vertical">
+                    <input type="range" class="eq-slider" min="-12" max="12" value="9" orient="vertical" aria-label="Clarity Slider">
+                    <div class="slider-fill-vertical" style="height: 87.5%;"></div>
+                  </div>
+                  <span class="font-bebas text-base text-slate-300">Treble</span>
+                </div>
+              </div>
+
+              <!-- Rotary Knobs -->
+              <div class="eq-knobs-container pt-4 border-t border-white/5">
+                <div class="eq-knob-wrapper">
+                  <div class="rotary-knob-container">
+                    <div class="rotary-knob" id="bass-knob" tabindex="0" role="slider" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" aria-label="Bass Boost Knob">
+                      <div class="knob-pointer"></div>
+                    </div>
+                    <div class="knob-glow"></div>
+                  </div>
+                  <span class="font-bebas text-lg tracking-wider text-slate-300">BASS BOOST</span>
+                  <span class="font-bungee text-sm text-emerald-400" id="bass-value">70%</span>
+                </div>
+
+                <div class="eq-knob-wrapper">
+                  <div class="rotary-knob-container">
+                    <div class="rotary-knob" id="spatial-knob" tabindex="0" role="slider" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100" aria-label="3D Surround Knob">
+                      <div class="knob-pointer" style="transform: rotate(18deg);"></div>
+                    </div>
+                    <div class="knob-glow"></div>
+                  </div>
+                  <span class="font-bebas text-lg tracking-wider text-slate-300">3D SURROUND</span>
+                  <span class="font-bungee text-sm text-cyan-400" id="spatial-value">45%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="py-20 bg-slate-900/30 border-t border-white/5 relative">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center mb-14">
+          <div class="flex items-center justify-center gap-3 mb-2">
+            <span class="h-px w-10 bg-emerald-500/50"></span>
+            <span class="font-bungee text-xs sm:text-sm text-emerald-400 tracking-widest uppercase">Answers</span>
+            <span class="h-px w-10 bg-emerald-500/50"></span>
+          </div>
+          <h2 class="font-bebas text-5xl sm:text-7xl text-white tracking-wide uppercase">
+            Frequently Asked Questions
+          </h2>
+          <p class="font-comic text-slate-400 text-base sm:text-lg mt-2">
+            Everything you need to know about listening with Vyb.
+          </p>
+        </div>
+
+        <div class="space-y-4">
+          
+          <div class="p-7 rounded-2xl bg-slate-900/60 border border-white/10 hover:border-emerald-500/30 transition-all">
+            <h3 class="font-bebas text-2xl text-white tracking-wide uppercase mb-2">Is Vyb completely free with no ads?</h3>
+            <p class="font-comic text-slate-300 text-base leading-relaxed">
+              Yes, 100%. Vyb has zero advertisements, no premium subscriptions, and no paywalls. All sound features, equalizers, and visualizers are completely free to use.
+            </p>
+          </div>
+
+          <div class="p-7 rounded-2xl bg-slate-900/60 border border-white/10 hover:border-emerald-500/30 transition-all">
+            <h3 class="font-bebas text-2xl text-white tracking-wide uppercase mb-2">How do I add music to Vyb?</h3>
+            <p class="font-comic text-slate-300 text-base leading-relaxed">
+              You can import existing MP3 folders or files directly from your phone's storage. You can also download tracks into your library directly by entering an audio file URL.
+            </p>
+          </div>
+
+          <div class="p-7 rounded-2xl bg-slate-900/60 border border-white/10 hover:border-emerald-500/30 transition-all">
+            <h3 class="font-bebas text-2xl text-white tracking-wide uppercase mb-2">Does Vyb work completely offline?</h3>
+            <p class="font-comic text-slate-300 text-base leading-relaxed">
+              Yes! Vyb is built from the ground up as an offline player. Once audio is on your device, you can listen on flights, subway rides, or in remote areas with zero internet connection or data usage.
+            </p>
+          </div>
+
+          <div class="p-7 rounded-2xl bg-slate-900/60 border border-white/10 hover:border-emerald-500/30 transition-all">
+            <h3 class="font-bebas text-2xl text-white tracking-wide uppercase mb-2">Do I need an account to use Vyb?</h3>
+            <p class="font-comic text-slate-300 text-base leading-relaxed">
+              No account, email, or login required. Just install the app from Google Play, import your music, and start enjoying your songs.
+            </p>
+          </div>
+
+        </div>
+
       </div>
     </section>
 
     <!-- Download Section -->
-    <section id="download" class="landing-section" style="max-width: 900px; margin: var(--spacing-xl) auto; padding: 0 var(--spacing-md);">
-      <div class="download-container-card">
-        <div class="download-content">
-          <div class="badge">GET VYB MUSIC PLAYER</div>
-          <h2>Ready to Vyb?</h2>
-          <p>Get the latest release of Vyb for Android. Zero ads, zero background tracking, and 100% offline control.</p>
+    <section id="download" class="py-24 relative overflow-hidden">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="p-8 sm:p-14 rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 border border-white/10 shadow-2xl relative overflow-hidden text-center">
           
-          <div class="download-features-bullets">
-            <div class="bullet-item">
-              <span class="bullet-check">✓</span>
-              <span>Supports Android 7.0 (API 24) and above, targeting Android 16 (API 36)</span>
+          <h2 class="font-bebas text-6xl sm:text-8xl text-white tracking-wide uppercase leading-tight">
+            Ready to upgrade your music experience?
+          </h2>
+          
+          <p class="font-comic text-slate-300 text-lg sm:text-2xl max-w-xl mx-auto mt-4 mb-8">
+            Get Vyb today on the Google Play Store. Zero ads, zero background tracking, and 100% offline control.
+          </p>
+
+          <!-- Badges without AI slop pill style -->
+          <div class="flex flex-wrap items-center justify-center gap-6 max-w-md mx-auto mb-10 text-sm font-bungee text-slate-300">
+            <div class="flex items-center gap-2">
+              <span class="text-emerald-400">✓</span>
+              <span>Free to Use</span>
             </div>
-            <div class="bullet-item">
-              <span class="bullet-check">✓</span>
-              <span>Google Play Store compliant (Encrypted HTTPS, zero telemetry)</span>
+            <div class="flex items-center gap-2">
+              <span class="text-emerald-400">✓</span>
+              <span>Zero Ads</span>
             </div>
-            <div class="bullet-item">
-              <span class="bullet-check">✓</span>
-              <span>Lightweight Android App Bundle (.aab) & standalone APK available</span>
+            <div class="flex items-center gap-2">
+              <span class="text-emerald-400">✓</span>
+              <span>100% Offline</span>
             </div>
           </div>
 
-          <div class="download-buttons-group">
-            <a href="https://github.com/stonewellstudio/vyb/releases/latest" class="btn btn-primary" style="padding: 14px 32px; font-size: 1.05rem;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon" style="width: 20px; height: 20px;">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
+          <!-- Official Google Play Badge Button -->
+          <div class="flex justify-center">
+            <a href="https://play.google.com/store/apps/details?id=com.stonewellstudio.vyb" target="_blank" rel="noopener" class="inline-flex items-center gap-4 px-8 py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-white/20 hover:border-emerald-500/60 shadow-2xl shadow-emerald-950/40 hover:scale-105 transition-all group">
+              <!-- Official Multi-colored Google Play Logo -->
+              <svg class="w-9 h-9 flex-shrink-0 transform group-hover:scale-110 transition-transform" viewBox="0 0 512 512">
+                <path fill="#00E676" d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1z"/>
+                <path fill="#0086F8" d="M47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0z"/>
+                <path fill="#FF3D00" d="M325.3 277.7l60.1 60.1L104.6 499l220.7-221.3z"/>
+                <path fill="#FFC107" d="M441.7 232.3l-56.3-32.5-60.1 60.1 60.1 60.1 56.4-32.4c19.8-11.5 19.8-30.1-.1-41.3z"/>
               </svg>
-              Download APK (v1.2.0)
-            </a>
-            <a href="https://github.com/stonewellstudio/vyb" target="_blank" rel="noopener" class="btn btn-secondary" style="padding: 14px 32px; font-size: 1.05rem;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon" style="width: 20px; height: 20px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-              View GitHub Source
+              <div class="text-left">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">GET IT ON</div>
+                <div class="text-2xl font-bebas tracking-wide text-white leading-tight">Google Play</div>
+              </div>
             </a>
           </div>
+
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div class="footer-container">
-      <div class="footer-brand">
-        <div class="footer-logo">
-          <span class="logo-dot"></span>
-          <span>Vyb</span>
+  <!-- Footer -->
+  <footer class="border-t border-white/10 bg-slate-950 py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        
+        <div class="md:col-span-2 space-y-3">
+          <div class="flex items-center gap-3">
+            <img src="app_icon.webp" alt="Vyb App Icon" class="w-8 h-8 rounded-lg border border-white/10 object-cover shadow-sm" />
+            <span class="font-bungee text-xl text-white">VYB</span>
+          </div>
+          <p class="font-comic text-sm text-slate-400 max-w-sm">
+            A sleek, offline music player and equalizer for Android. Made with care by Stonewell Studio.
+          </p>
         </div>
-        <p class="footer-desc">Premium offline-first music player and spatial equalizer app for Android.</p>
+
+        <div>
+          <h4 class="font-bungee text-xs text-white uppercase tracking-wider mb-3">Links</h4>
+          <ul class="space-y-2 text-sm text-slate-400 font-comic">
+            <li><a href="https://play.google.com/store/apps/details?id=com.stonewellstudio.vyb" target="_blank" rel="noopener" class="hover:text-emerald-400 transition-colors">Google Play Store</a></li>
+            <li><a href="https://github.com/stonewellstudio/vyb" target="_blank" rel="noopener" class="hover:text-emerald-400 transition-colors">GitHub Project</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="font-bungee text-xs text-white uppercase tracking-wider mb-3">Privacy &amp; Support</h4>
+          <ul class="space-y-2 text-sm text-slate-400 font-comic">
+            <li><a href="privacy.html" class="hover:text-emerald-400 transition-colors">Privacy Policy</a></li>
+            <li><a href="mailto:support@stonewellstudio.com" class="hover:text-emerald-400 transition-colors">Contact Support</a></li>
+          </ul>
+        </div>
+
       </div>
-      <div class="footer-links-group">
-        <h4 class="footer-title">Vyb App</h4>
-        <ul class="footer-links">
-          <li><a href="#">Home</a></li>
-          <li><a href="https://github.com/stonewellstudio/vyb" target="_blank" rel="noopener">GitHub Project</a></li>
-        </ul>
+
+      <div class="pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4 font-comic">
+        <p>&copy; 2026 Stonewell Studio. All rights reserved.</p>
+        <p>Google Play and the Google Play logo are trademarks of Google LLC.</p>
       </div>
-      <div class="footer-links-group">
-        <h4 class="footer-title">Legal</h4>
-        <ul class="footer-links">
-          <li><a href="privacy.html">Privacy Policy</a></li>
-          <li><a href="privacy.html#contact">Contact Support</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>&copy; 2026 Stonewell Studio. All rights reserved. Android and Play Store are trademarks of Google LLC.</p>
     </div>
   </footer>
 
