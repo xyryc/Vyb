@@ -7,6 +7,10 @@ Vyb is a premium, offline-first music streaming and local playback application f
 ## Screenshots
 
 <p align="center">
+  <img src="screenshots/promo_banner.png" alt="Vyb Offline Music Player Promo Banner" width="100%" />
+</p>
+
+<p align="center">
   <img src="screenshots/01_onboarding_welcome.png" width="200" />
   <img src="screenshots/02_onboarding_insights.png" width="200" />
   <img src="screenshots/03_home_dashboard.png" width="200" />
