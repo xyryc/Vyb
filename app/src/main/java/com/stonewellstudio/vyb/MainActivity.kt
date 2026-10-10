@@ -77,6 +77,7 @@ import com.stonewellstudio.vyb.data.PlaylistEntity
 import com.stonewellstudio.vyb.data.TrackEntity
 import com.stonewellstudio.vyb.ui.theme.MyApplicationTheme
 import com.stonewellstudio.vyb.ui.theme.ThemeAccent
+import com.stonewellstudio.vyb.ui.theme.LocalAccentColor
 import com.stonewellstudio.vyb.player.LyricsUiState
 import com.stonewellstudio.vyb.player.LyricsService
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -97,12 +98,16 @@ import java.util.Calendar
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.PI
@@ -1107,25 +1112,23 @@ fun SmartMixCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = when (playlist.id) {
-        -1 -> Brush.linearGradient(
-            colors = listOf(Color(0xFFEC008C), Color(0xFFFC6767))
-        )
-        -2 -> Brush.linearGradient(
-            colors = listOf(Color(0xFFFF8C00), Color(0xFF8B0000))
-        )
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "SmartMixCardScale"
+    )
+
+    val (primaryColor, secondaryColor) = when (playlist.id) {
+        -1 -> Pair(Color(0xFFFF2A85), Color(0xFFC2185B))
+        -2 -> Pair(Color(0xFFFF8C00), Color(0xFFD84315))
         else -> {
             val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
             when (hour) {
-                in 6..11 -> Brush.linearGradient(
-                    colors = listOf(Color(0xFFFF9A9E), Color(0xFFFECFEF), Color(0xFFFEC107))
-                )
-                in 12..17 -> Brush.linearGradient(
-                    colors = listOf(Color(0xFF11998E), Color(0xFF38EF7D))
-                )
-                else -> Brush.linearGradient(
-                    colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
-                )
+                in 6..11 -> Pair(Color(0xFF00E676), Color(0xFF00796B))
+                in 12..17 -> Pair(Color(0xFF00E5FF), Color(0xFF0D47A1))
+                else -> Pair(Color(0xFFB388FF), Color(0xFF4A148C))
             }
         }
     }
@@ -1140,19 +1143,74 @@ fun SmartMixCard(
         modifier = modifier
             .width(180.dp)
             .height(200.dp)
-            .clickable(onClick = onClick)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
             .testTag("smart_mix_card_${playlist.id}"),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(gradient)
-                .padding(16.dp)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(primaryColor, secondaryColor),
+                        start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                        end = androidx.compose.ui.geometry.Offset(360f, 360f)
+                    )
+                )
         ) {
+            // Subtle ambient dark gradient overlay for superior text contrast
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.05f),
+                                Color.Black.copy(alpha = 0.45f)
+                            )
+                        )
+                    )
+            )
+
+            // Decorative angled watermark icon matching search cards
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.18f),
+                modifier = Modifier
+                    .size(96.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 16.dp, y = 16.dp)
+                    .graphicsLayer {
+                        rotationZ = -15f
+                    }
+            )
+
+            // Tactile micro-film grain texture overlay matching search cards
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawIntoCanvas { canvas ->
+                    canvas.nativeCanvas.drawRect(
+                        0f, 0f, size.width, size.height,
+                        CardGrainTextureProvider.getPaint()
+                    )
+                }
+            }
+
+            // Card content layered cleanly on top
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
@@ -1164,7 +1222,7 @@ fun SmartMixCard(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.2f)),
+                            .background(Color.Black.copy(alpha = 0.25f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -1174,10 +1232,10 @@ fun SmartMixCard(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    
+
                     Text(
                         text = t("smart_mix_badge", language).uppercase(),
-                        color = VybWhite.copy(alpha = 0.8f),
+                        color = VybWhite.copy(alpha = 0.85f),
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -1196,7 +1254,7 @@ fun SmartMixCard(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = localizePlaylistDescription(playlist.description, language),
-                        color = VybWhite.copy(alpha = 0.8f),
+                        color = VybWhite.copy(alpha = 0.82f),
                         fontSize = 11.sp,
                         maxLines = 2,
                         lineHeight = 14.sp,
@@ -1353,6 +1411,7 @@ fun TrackListItem(
 ) {
     var showTrackMenu by remember { mutableStateOf(false) }
 
+    val activeColor = LocalAccentColor.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -1381,7 +1440,7 @@ fun TrackListItem(
                     Icon(
                         imageVector = Icons.Filled.VolumeUp,
                         contentDescription = "Playing",
-                        tint = VybGreen,
+                        tint = activeColor,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -1397,7 +1456,7 @@ fun TrackListItem(
                 text = track.title,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isCurrent) VybGreen else VybWhite,
+                color = if (isCurrent) activeColor else VybWhite,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1421,7 +1480,7 @@ fun TrackListItem(
                     Icon(
                         imageVector = if (track.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                         contentDescription = "Like",
-                        tint = if (track.isLiked) VybGreen else VybGrey,
+                        tint = if (track.isLiked) activeColor else VybGrey,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -1451,7 +1510,7 @@ fun TrackListItem(
                                         Icon(
                                             imageVector = Icons.Filled.Edit,
                                             contentDescription = null,
-                                            tint = VybGreen,
+                                            tint = activeColor,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
@@ -1483,87 +1542,135 @@ fun SearchScreen(
     onEditTagsClick: ((TrackEntity) -> Unit)? = null
 ) {
     val language = LocalAppLanguage.current
-    val categories = listOf(
-        Pair("Synthwave", Color(0xFFE91E63)),
-        Pair("Vaporwave", Color(0xFF9C27B0)),
-        Pair("Acoustic", Color(0xFF4CAF50)),
-        Pair("Techno", Color(0xFF00BCD4)),
-        Pair("Lofi", Color(0xFFFF9800)),
-        Pair("Ambient", Color(0xFF3F51B5)),
-        Pair("Electronic", Color(0xFF009688)),
-        Pair("Rock", Color(0xFF795548))
-    )
+    val accentColor = LocalAccentColor.current
+    val categories = remember {
+        listOf(
+            GenreCategoryData("Synthwave", Color(0xFFFF2A85), Color(0xFF7B1FA2), Icons.Filled.Whatshot),
+            GenreCategoryData("Vaporwave", Color(0xFFB388FF), Color(0xFF512DA8), Icons.Filled.GraphicEq),
+            GenreCategoryData("Acoustic", Color(0xFF00E676), Color(0xFF00796B), Icons.Filled.MusicNote),
+            GenreCategoryData("Techno", Color(0xFF00E5FF), Color(0xFF0D47A1), Icons.Filled.Headphones),
+            GenreCategoryData("Lofi", Color(0xFFFFAB40), Color(0xFFD84315), Icons.Filled.Bedtime),
+            GenreCategoryData("Ambient", Color(0xFF536DFE), Color(0xFF1A237E), Icons.Filled.QueueMusic),
+            GenreCategoryData("Electronic", Color(0xFF1DE9B6), Color(0xFF004D40), Icons.Filled.Tune),
+            GenreCategoryData("Rock", Color(0xFFFF5252), Color(0xFF880E4F), Icons.Filled.AudioFile)
+        )
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        Text(
-            text = t("search", language),
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = VybWhite,
-            modifier = Modifier.padding(top = 16.dp, bottom = 12.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = t("search", language),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = VybWhite
+            )
+        }
 
-        // Search Bar
+        // Modern Clean Search Bar
         TextField(
             value = searchQuery,
             onValueChange = onQueryChange,
-            placeholder = { Text(t("what_listen", language), color = VybGrey) },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = t("search", language), tint = VybGrey) },
+            placeholder = { 
+                Text(
+                    t("what_listen", language), 
+                    color = VybGrey.copy(alpha = 0.8f),
+                    fontSize = 14.sp
+                ) 
+            },
+            leadingIcon = { 
+                Icon(
+                    Icons.Filled.Search, 
+                    contentDescription = t("search", language), 
+                    tint = if (searchQuery.isNotEmpty()) accentColor else VybGrey,
+                    modifier = Modifier.size(22.dp)
+                ) 
+            },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Filled.Clear, contentDescription = "Clear", tint = VybGrey)
+                    IconButton(
+                        onClick = { onQueryChange("") },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Clear, 
+                            contentDescription = "Clear", 
+                            tint = VybGrey,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = VybSurface,
+                focusedContainerColor = VybSurfaceVariant,
                 unfocusedContainerColor = VybSurface,
                 disabledContainerColor = VybSurface,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
                 focusedTextColor = VybWhite,
-                unfocusedTextColor = VybWhite
+                unfocusedTextColor = VybWhite,
+                cursorColor = accentColor
             ),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp)
+                .border(
+                    width = 1.dp,
+                    color = if (searchQuery.isNotEmpty()) accentColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.06f),
+                    shape = RoundedCornerShape(14.dp)
+                )
                 .testTag("search_field")
         )
 
         if (searchQuery.isEmpty()) {
-            Text(
-                text = t("browse_all", language),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = VybWhite,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Theme accent indicator bar next to title
+                Box(
+                    modifier = Modifier
+                        .size(width = 3.5.dp, height = 14.dp)
+                        .background(accentColor, shape = RoundedCornerShape(2.dp))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = t("browse_all", language),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = VybWhite
+                )
+            }
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 80.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 96.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(categories) { category ->
-                    GenreCategoryCard(
-                        genre = category.first,
-                        backgroundColor = category.second,
-                        onClick = { onQueryChange(category.first) }
+                    ModernGenreCard(
+                        category = category,
+                        onClick = { onQueryChange(category.name) }
                     )
                 }
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(bottom = 80.dp),
+                contentPadding = PaddingValues(bottom = 96.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (searchResults.isEmpty()) {
@@ -1571,15 +1678,24 @@ fun SearchScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 40.dp),
+                                .padding(top = 48.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = t("no_results_found", language).replace("%s", searchQuery),
-                                color = VybGrey,
-                                fontSize = 15.sp,
-                                textAlign = TextAlign.Center
-                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Filled.Search,
+                                    contentDescription = null,
+                                    tint = accentColor.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = t("no_results_found", language).replace("%s", searchQuery),
+                                    color = VybGrey,
+                                    fontSize = 15.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
                 } else {
@@ -1599,39 +1715,170 @@ fun SearchScreen(
     }
 }
 
+data class GenreCategoryData(
+    val name: String,
+    val primaryColor: Color,
+    val secondaryColor: Color,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
 @Composable
 fun GenreCategoryCard(
     genre: String,
     backgroundColor: Color,
     onClick: () -> Unit
 ) {
+    // Backwards compatibility alias
+    ModernGenreCard(
+        category = GenreCategoryData(
+            name = genre,
+            primaryColor = backgroundColor,
+            secondaryColor = backgroundColor.copy(alpha = 0.7f),
+            icon = Icons.Filled.MusicNote
+        ),
+        onClick = onClick
+    )
+}
+
+// Hardware-accelerated repeating micro-grain texture provider for search genre cards
+private object CardGrainTextureProvider {
+    private var cachedPaint: android.graphics.Paint? = null
+
+    fun getPaint(): android.graphics.Paint {
+        cachedPaint?.let { return it }
+        val size = 96
+        val pixels = IntArray(size * size)
+        val random = java.util.Random(1337L)
+        for (i in pixels.indices) {
+            // Authentic organic film grain speckles
+            if (random.nextFloat() < 0.70f) {
+                val noise = random.nextInt(256)
+                // Subtle stipple grain: ~4% to 14% opacity for tactile surface depth
+                val alpha = (random.nextFloat() * 26 + 10).toInt()
+                pixels[i] = android.graphics.Color.argb(alpha, noise, noise, noise)
+            } else {
+                pixels[i] = 0
+            }
+        }
+        val bmp = android.graphics.Bitmap.createBitmap(pixels, size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val shader = android.graphics.BitmapShader(
+            bmp,
+            android.graphics.Shader.TileMode.REPEAT,
+            android.graphics.Shader.TileMode.REPEAT
+        )
+        val paint = android.graphics.Paint().apply {
+            isAntiAlias = false
+            isDither = false
+            this.shader = shader
+        }
+        cachedPaint = paint
+        return paint
+    }
+}
+
+@Composable
+fun ModernGenreCard(
+    category: GenreCategoryData,
+    onClick: () -> Unit
+) {
     val language = LocalAppLanguage.current
-    val translatedGenre = t("genre_${genre.lowercase()}", language)
-    Box(
+    val translatedGenre = t("genre_${category.name.lowercase()}", language)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "GenreCardScale"
+    )
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(96.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(backgroundColor)
-            .clickable(onClick = onClick)
-            .padding(12.dp)
-            .testTag("genre_card_$genre")
+            .height(104.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .testTag("genre_card_${category.name}"),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Text(
-            text = translatedGenre,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = VybWhite,
-            modifier = Modifier.align(Alignment.TopStart)
-        )
-        Icon(
-            imageVector = Icons.Filled.MusicNote,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.25f),
+        Box(
             modifier = Modifier
-                .size(48.dp)
-                .align(Alignment.BottomEnd)
-        )
+                .fillMaxSize()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            category.primaryColor,
+                            category.secondaryColor
+                        ),
+                        start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                        end = androidx.compose.ui.geometry.Offset(320f, 320f)
+                    )
+                )
+        ) {
+            // Subtle ambient dark gradient overlay for superior text contrast
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.05f),
+                                Color.Black.copy(alpha = 0.42f)
+                            )
+                        )
+                    )
+            )
+
+            // Decorative angled watermark category icon (modern music app style)
+            Icon(
+                imageVector = category.icon,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.22f),
+                modifier = Modifier
+                    .size(72.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 12.dp, y = 12.dp)
+                    .graphicsLayer {
+                        rotationZ = -15f
+                    }
+            )
+
+            // Tactile micro-film grain texture overlay for rich analog depth
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawIntoCanvas { canvas ->
+                    canvas.nativeCanvas.drawRect(
+                        0f, 0f, size.width, size.height,
+                        CardGrainTextureProvider.getPaint()
+                    )
+                }
+            }
+
+            // Clean genre title positioned at the bottom-start
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.BottomStart
+            ) {
+                Text(
+                    text = translatedGenre,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.2.sp,
+                    color = VybWhite,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 
@@ -5523,25 +5770,24 @@ fun AnimatedSoundwaveIllustration(modifier: Modifier = Modifier) {
 @Composable
 fun AnimatedInsightsIllustration(modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition(label = "InsightsIllustration")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
+    val sweep by infiniteTransition.animateFloat(
+        initialValue = 180f,
+        targetValue = 270f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
+            animation = tween(2200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "pulseScale"
+        label = "sweep"
     )
-    val progressAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 280f,
+    val barPulse by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.85f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = FastOutSlowInEasing),
+            animation = tween(1400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "progressAngle"
+        label = "barPulse"
     )
-    val green = VybGreen
 
     Box(
         modifier = modifier
@@ -5550,60 +5796,68 @@ fun AnimatedInsightsIllustration(modifier: Modifier = Modifier) {
             .border(1.dp, VybGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(32.dp)) {
-            val width = size.width
-            val height = size.height
-            val center = androidx.compose.ui.geometry.Offset(width / 2f, height * 0.45f)
-            val radius = size.minDimension * 0.28f * pulseScale
+        val green = VybGreen
+        val surfaceVariant = VybSurfaceVariant
+        val cyan = Color(0xFF00E5FF)
 
+        Canvas(modifier = Modifier.size(130.dp)) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val outerRadius = size.minDimension / 2f - 4.dp.toPx()
+            val innerRadius = outerRadius * 0.65f
+
+            // Outer subtle track
             drawCircle(
-                color = VybGrey.copy(alpha = 0.1f),
-                radius = radius,
+                color = surfaceVariant.copy(alpha = 0.5f),
+                radius = outerRadius,
                 center = center,
-                style = Stroke(width = 12.dp.toPx())
+                style = Stroke(width = 8.dp.toPx())
             )
 
+            // Outer animated progress arc (Emerald)
             drawArc(
                 color = green,
                 startAngle = -90f,
-                sweepAngle = progressAngle,
+                sweepAngle = sweep,
                 useCenter = false,
-                topLeft = androidx.compose.ui.geometry.Offset(center.x - radius, center.y - radius),
-                size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
-                style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                topLeft = Offset(center.x - outerRadius, center.y - outerRadius),
+                size = androidx.compose.ui.geometry.Size(outerRadius * 2, outerRadius * 2),
+                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
             )
 
+            // Inner subtle track
             drawCircle(
-                color = green.copy(alpha = 0.15f),
-                radius = radius * 0.7f,
-                center = center
+                color = surfaceVariant.copy(alpha = 0.35f),
+                radius = innerRadius,
+                center = center,
+                style = Stroke(width = 6.dp.toPx())
             )
 
-            val barYStart = height * 0.82f
-            val barHeight = 8.dp.toPx()
-            val totalBars = 3
-            val barSpacing = 12.dp.toPx()
+            // Inner animated secondary arc (Cyan)
+            drawArc(
+                color = cyan,
+                startAngle = 45f,
+                sweepAngle = (sweep * 0.7f),
+                useCenter = false,
+                topLeft = Offset(center.x - innerRadius, center.y - innerRadius),
+                size = androidx.compose.ui.geometry.Size(innerRadius * 2, innerRadius * 2),
+                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+            )
 
-            for (i in 0 until totalBars) {
-                val y = barYStart + i * (barHeight + barSpacing)
-                val percentage = when(i) {
-                    0 -> 0.85f
-                    1 -> 0.65f
-                    else -> 0.4f
-                }
-                
-                drawRoundRect(
-                    color = VybGrey.copy(alpha = 0.15f),
-                    topLeft = androidx.compose.ui.geometry.Offset(width * 0.1f, y),
-                    size = androidx.compose.ui.geometry.Size(width * 0.8f, barHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barHeight / 2f)
-                )
+            // Center minimal 3-bar metric visualizer
+            val barWidth = 4.dp.toPx()
+            val spacing = 5.dp.toPx()
+            val heights = listOf(0.45f, barPulse, 0.6f)
+            val totalW = 3 * barWidth + 2 * spacing
+            val startX = center.x - totalW / 2f
 
+            for (i in 0 until 3) {
+                val h = innerRadius * heights[i]
+                val bx = startX + i * (barWidth + spacing)
                 drawRoundRect(
-                    color = if (i == 0) green else VybGrey.copy(alpha = 0.6f),
-                    topLeft = androidx.compose.ui.geometry.Offset(width * 0.1f, y),
-                    size = androidx.compose.ui.geometry.Size(width * 0.8f * percentage * (pulseScale + 0.05f).coerceAtMost(1f), barHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barHeight / 2f)
+                    color = if (i == 1) green else VybWhite.copy(alpha = 0.8f),
+                    topLeft = Offset(bx, center.y - h / 2f),
+                    size = androidx.compose.ui.geometry.Size(barWidth, h),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f)
                 )
             }
         }
@@ -5613,7 +5867,54 @@ fun AnimatedInsightsIllustration(modifier: Modifier = Modifier) {
 @Composable
 fun AnimatedEqualizerIllustration(modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition(label = "EqualizerIllustration")
-    
+    val p1 by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "p1"
+    )
+    val p2 by infiniteTransition.animateFloat(
+        initialValue = 0.75f,
+        targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "p2"
+    )
+    val p3 by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "p3"
+    )
+    val p4 by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 0.45f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "p4"
+    )
+    val p5 by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1300, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "p5"
+    )
+
+    val sliderPositions = listOf(p1, p2, p3, p4, p5)
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -5621,46 +5922,59 @@ fun AnimatedEqualizerIllustration(modifier: Modifier = Modifier) {
             .border(1.dp, VybGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier.padding(24.dp).fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            for (i in 0 until 5) {
-                val phase by infiniteTransition.animateFloat(
-                    initialValue = 0f,
-                    targetValue = (2 * Math.PI).toFloat(),
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1500 + i * 200, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    ),
-                    label = "phase$i"
+        val green = VybGreen
+        val surfaceVariant = VybSurfaceVariant
+
+        Canvas(modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 44.dp)) {
+            val width = size.width
+            val height = size.height
+            val sliderCount = 5
+            val trackWidth = 4.dp.toPx()
+            val thumbRadius = 9.dp.toPx()
+            val spacing = (width - (sliderCount * trackWidth)) / (sliderCount - 1)
+
+            // Center reference line
+            drawLine(
+                color = VybGrey.copy(alpha = 0.15f),
+                start = Offset(0f, height / 2f),
+                end = Offset(width, height / 2f),
+                strokeWidth = 1.dp.toPx()
+            )
+
+            for (i in 0 until sliderCount) {
+                val x = i * (trackWidth + spacing) + trackWidth / 2f
+                val progress = sliderPositions[i]
+                val thumbY = height * (1f - progress)
+
+                // Background track
+                drawLine(
+                    color = surfaceVariant,
+                    start = Offset(x, 0f),
+                    end = Offset(x, height),
+                    strokeWidth = trackWidth,
+                    cap = StrokeCap.Round
                 )
-                
-                val heightPercent = 0.4f + 0.5f * ((sin(phase + i) + 1f) / 2f)
-                
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .padding(horizontal = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .width(4.dp)
-                            .background(VybGrey.copy(alpha = 0.2f), RoundedCornerShape(2.dp))
-                    )
-                    
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight(heightPercent)
-                            .width(24.dp)
-                            .background(VybGreen, RoundedCornerShape(12.dp))
-                            .align(Alignment.BottomCenter)
-                    )
-                }
+
+                // Active glowing track up to thumb
+                drawLine(
+                    color = green,
+                    start = Offset(x, height),
+                    end = Offset(x, thumbY),
+                    strokeWidth = trackWidth,
+                    cap = StrokeCap.Round
+                )
+
+                // Minimal clean thumb slider knob
+                drawCircle(
+                    color = green,
+                    radius = thumbRadius,
+                    center = Offset(x, thumbY)
+                )
+                drawCircle(
+                    color = Color(0xFF121212),
+                    radius = thumbRadius * 0.45f,
+                    center = Offset(x, thumbY)
+                )
             }
         }
     }
@@ -5669,20 +5983,33 @@ fun AnimatedEqualizerIllustration(modifier: Modifier = Modifier) {
 @Composable
 fun AnimatedPersonalizeIllustration(modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition(label = "PersonalizeIllustration")
-    val phase1 by infiniteTransition.animateFloat(
+    val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
+            animation = tween(9000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "phase1"
+        label = "rotation"
     )
-    
-    val green = VybGreen
-    val white = VybWhite
-    val grey = VybGrey
-    
+    val colorPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "colorPhase"
+    )
+
+    val palette = listOf(
+        VybGreen,
+        Color(0xFF03A9F4),
+        Color(0xFFAB47BC),
+        Color(0xFFFF7043)
+    )
+    val activeColor = palette[(colorPhase.toInt()).coerceIn(0, palette.lastIndex)]
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -5690,43 +6017,79 @@ fun AnimatedPersonalizeIllustration(modifier: Modifier = Modifier) {
             .border(1.dp, VybGrey.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(32.dp)) {
-            val width = size.width
-            val height = size.height
-            val center = androidx.compose.ui.geometry.Offset(width / 2f, height / 2f)
-            
-            val colors = listOf(green, Color(0xFFFF9800), Color(0xFFE91E63), Color(0xFF00BCD4))
-            val radius = size.minDimension * 0.18f
-            
-            for (i in 0 until 4) {
-                val angle = (phase1 + (i * 90f)) * (Math.PI / 180f)
-                val orbitRadius = size.minDimension * 0.35f
-                
-                val x = center.x + orbitRadius * cos(angle).toFloat()
-                val y = center.y + orbitRadius * sin(angle).toFloat()
-                
-                drawCircle(
-                    color = colors[i],
-                    radius = radius + (sin(angle * 4).toFloat() * radius * 0.15f),
-                    center = androidx.compose.ui.geometry.Offset(x, y)
-                )
-            }
-            
+        val surfaceVariant = VybSurfaceVariant
+
+        Canvas(modifier = Modifier.size(130.dp)) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val outerRadius = size.minDimension / 2f
+
+            // Clean vinyl body
             drawCircle(
-                color = white,
-                radius = radius * 0.8f,
+                color = surfaceVariant.copy(alpha = 0.5f),
+                radius = outerRadius,
                 center = center
             )
-            
-            drawArc(
-                color = green,
-                startAngle = phase1 * 2f,
-                sweepAngle = 180f,
-                useCenter = false,
-                topLeft = androidx.compose.ui.geometry.Offset(center.x - radius * 1.5f, center.y - radius * 1.5f),
-                size = androidx.compose.ui.geometry.Size(radius * 3f, radius * 3f),
-                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+
+            // Groove ring
+            drawCircle(
+                color = VybGrey.copy(alpha = 0.2f),
+                radius = outerRadius * 0.78f,
+                center = center,
+                style = Stroke(width = 1.dp.toPx())
             )
+            drawCircle(
+                color = VybGrey.copy(alpha = 0.15f),
+                radius = outerRadius * 0.62f,
+                center = center,
+                style = Stroke(width = 1.dp.toPx())
+            )
+
+            // Rotating accent orbit dot on outer rim
+            val orbitAngleRad = (rotation * PI / 180f).toFloat()
+            val orbitRadius = outerRadius * 0.88f
+            val dotX = center.x + orbitRadius * cos(orbitAngleRad)
+            val dotY = center.y + orbitRadius * sin(orbitAngleRad)
+            drawCircle(
+                color = activeColor,
+                radius = 3.5.dp.toPx(),
+                center = Offset(dotX, dotY)
+            )
+
+            // Center theme-accented label disc
+            drawCircle(
+                color = activeColor,
+                radius = outerRadius * 0.38f,
+                center = center
+            )
+
+            // Spindle hole
+            drawCircle(
+                color = Color(0xFF121212),
+                radius = outerRadius * 0.12f,
+                center = center
+            )
+        }
+
+        // Clean minimal theme dots row below center
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            palette.forEach { color ->
+                val isCurrent = color == activeColor
+                Box(
+                    modifier = Modifier
+                        .size(if (isCurrent) 10.dp else 7.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                        .then(
+                            if (isCurrent) Modifier.border(1.5.dp, VybWhite, CircleShape) else Modifier
+                        )
+                )
+            }
         }
     }
 }
